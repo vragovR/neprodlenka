@@ -64,6 +64,20 @@ func (s *Store) Children(ctx context.Context) ([]Child, error) {
 	return children, nil
 }
 
+func (s *Store) ChildByID(ctx context.Context, id int64) (Child, bool, error) {
+	c := Child{ID: id, ParentIDs: []int64{}}
+	err := s.db.QueryRowContext(ctx,
+		`SELECT last_name, first_name, middle_name, price, active FROM children WHERE id = ?`, id,
+	).Scan(&c.LastName, &c.FirstName, &c.MiddleName, &c.Price, &c.Active)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Child{}, false, nil
+	}
+	if err != nil {
+		return Child{}, false, fmt.Errorf("get child: %w", err)
+	}
+	return c, true, nil
+}
+
 func (s *Store) AddChild(ctx context.Context, c Child) (Child, error) {
 	err := s.db.QueryRowContext(ctx, `
 		INSERT INTO children (last_name, first_name, middle_name, price) VALUES (?, ?, ?, ?)

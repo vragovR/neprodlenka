@@ -3,7 +3,7 @@ import type { Report } from '@/api/types'
 import { dayOfMonth, formatMoney, shortName, today, weekday, weekdaysShort } from '@/utils/format'
 import StatusMark from '@/components/StatusMark.vue'
 
-const { report } = defineProps<{ report: Report }>()
+const { uid, report } = defineProps<{ uid: string; report: Report }>()
 const now = today()
 </script>
 
@@ -29,9 +29,13 @@ const now = today()
       </thead>
       <tbody>
         <tr v-for="(row, i) in report.children" :key="i">
-          <th class="name" scope="row">{{ shortName(row) }}</th>
+          <th class="name" scope="row">
+            <RouterLink :to="{ name: 'child', params: { uid, id: row.id } }" class="link">
+              {{ shortName(row) }}
+            </RouterLink>
+          </th>
           <td v-for="(status, j) in row.marks" :key="j" :class="['day', { off: !report.days[j]?.school }]">
-            <StatusMark :status="status" :blank="!report.days[j]?.school || (report.days[j]?.date ?? '') > now" />
+            <StatusMark :status="status" :blank="!report.days[j]?.school" />
           </td>
           <td class="sum">{{ row.present }}</td>
           <td class="sum">{{ row.absent }}</td>
@@ -91,6 +95,16 @@ thead .name {
   font-weight: 600;
 }
 
+.link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .day {
   min-width: 30px;
   padding-inline: 2px;
@@ -110,12 +124,10 @@ thead .name {
   font-weight: 500;
 }
 
-.off {
-  background: var(--surface-muted);
-}
-
+.off .num,
 .off .wd {
-  color: var(--danger);
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 thead .today {

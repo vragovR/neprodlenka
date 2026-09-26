@@ -20,6 +20,7 @@ type Day struct {
 }
 
 type Row struct {
+	ID         int64     `json:"id"`
 	LastName   string    `json:"last_name"`
 	FirstName  string    `json:"first_name"`
 	MiddleName string    `json:"middle_name"`
@@ -51,6 +52,7 @@ func Build(month time.Time, noSchoolDays []string, children []store.Child, marks
 			continue
 		}
 		row := Row{
+			ID:         c.ID,
 			LastName:   c.LastName,
 			FirstName:  c.FirstName,
 			MiddleName: c.MiddleName,
@@ -75,4 +77,14 @@ func Build(month time.Time, noSchoolDays []string, children []store.Child, marks
 		r.Children = append(r.Children, row)
 	}
 	return r
+}
+
+func (r Row) MealPrice() int64 {
+	if r.Present == 0 {
+		return r.Price
+	}
+	if r.Total%int64(r.Present) != 0 {
+		return 0
+	}
+	return r.Total / int64(r.Present)
 }

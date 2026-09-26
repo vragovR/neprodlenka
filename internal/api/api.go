@@ -45,6 +45,7 @@ func NewHandler(a *auth.Service, s *store.Store, r *bot.Redrawer, b *bot.Bot, m 
 	mux.Handle("POST /api/debug/close/{date}", h.requireAdmin(h.debugClose))
 	mux.Handle("GET /api/debug/summaries", h.requireAdmin(h.debugSummaries))
 	mux.HandleFunc("GET /api/reports/{uid}", h.getReport)
+	mux.HandleFunc("GET /api/reports/{uid}/children/{id}", h.getChildReport)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Нет такого запроса")
 	})

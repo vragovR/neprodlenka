@@ -62,6 +62,7 @@ export interface MarkChange {
 }
 
 export interface ReportRow extends PersonName {
+  id: number
   marks: (Status | null)[]
   present: number
   absent: number
@@ -78,4 +79,13 @@ export interface Report {
   days: ReportDay[]
   children: ReportRow[]
   total: number
+}
+
+export interface ChildReport {
+  month: string
+  days: ReportDay[]
+  child: ReportRow
+  price: number
+  prev_uid: string
+  next_uid: string
 }

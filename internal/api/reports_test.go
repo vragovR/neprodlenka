@@ -66,3 +66,58 @@ func TestReportNotFound(t *testing.T) {
 		t.Errorf("status = %d, want 404", w.Code)
 	}
 }
+
+func TestChildReport(t *testing.T) {
+	t.Parallel()
+	e, c := attendanceEnv(t)
+	e.a.Exec(t, `INSERT INTO no_school_days (date) VALUES ('2026-09-05')`)
+	e.a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES
+		('2026-09-01', 1, 'present', 13000),
+		('2026-09-02', 1, 'absent', 0),
+		('2026-09-03', 1, 'present', 13000),
+		('2026-09-01', 2, 'present', 15000)`)
+
+	type childReport struct {
+		Days []struct {
+			School bool `json:"school"`
+		} `json:"days"`
+		Child struct {
+			ID       int64     `json:"id"`
+			LastName string    `json:"last_name"`
+			Marks    []*string `json:"marks"`
+			Present  int       `json:"present"`
+			Absent   int       `json:"absent"`
+			Total    int64     `json:"total"`
+		} `json:"child"`
+		Price   int64  `json:"price"`
+		PrevUID string `json:"prev_uid"`
+		NextUID string `json:"next_uid"`
+	}
+
+	e.a.Exec(t, `INSERT INTO report_months (month, uid) VALUES ('2026-08', 'rep-8'), ('2026-09', 'rep-9'), ('2026-10', 'rep-10')`)
+
+	w := e.do(t, "GET", "/api/reports/rep-9/children/1", "", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", w.Code, w.Body)
+	}
+	r := decode[childReport](t, w.Body.String())
+	if len(r.Days) != 30 || r.Days[4].School || r.Child.ID != 1 || r.Child.LastName != "Иванов" ||
+		r.Child.Present != 2 || r.Child.Absent != 1 || r.Child.Total != 26000 || r.Price != 13000 || r.PrevUID != "rep-8" || r.NextUID != "rep-10" {
+		t.Errorf("report = %+v", r)
+	}
+
+	r = decode[childReport](t, e.do(t, "GET", "/api/reports/rep-10/children/4", "", nil).Body.String())
+	if r.Child.LastName != "Орлов" || len(r.Child.Marks) != 31 || r.Child.Present != 0 || r.Price != 13000 || r.PrevUID != "rep-9" || r.NextUID != "" {
+		t.Errorf("inactive child = %+v", r)
+	}
+
+	for path, code := range map[string]int{
+		"/api/reports/rep-9/children/99":  http.StatusNotFound,
+		"/api/reports/rep-9/children/abc": http.StatusNotFound,
+		"/api/reports/unknown/children/1": http.StatusNotFound,
+	} {
+		if w := e.do(t, "GET", path, "", c); w.Code != code {
+			t.Errorf("%s: status = %d, want %d", path, w.Code, code)
+		}
+	}
+}

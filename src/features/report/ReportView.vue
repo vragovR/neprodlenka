@@ -3,11 +3,14 @@ import { onMounted } from 'vue'
 import { getReport } from '@/api'
 import { useRequest } from '@/composables/useRequest'
 import { monthTitle } from '@/utils/format'
+import { viewMode } from '@/composables/useViewMode'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiEmpty from '@/components/ui/UiEmpty.vue'
 import UiSpinner from '@/components/ui/UiSpinner.vue'
+import ViewToggle from '@/components/ViewToggle.vue'
+import ReportCalendars from './ReportCalendars.vue'
 import ReportTable from './ReportTable.vue'
-import ReportTotal from './ReportTotal.vue'
+import ReportSummary from './ReportSummary.vue'
 
 const { uid } = defineProps<{ uid: string }>()
 
@@ -25,11 +28,13 @@ onMounted(run)
     <template v-else>
       <div class="page-head">
         <h1>Отчёт за {{ monthTitle(data.month) }}</h1>
+        <ViewToggle v-if="data.children.length" />
       </div>
       <UiEmpty v-if="!data.children.length" title="В этом месяце отметок нет" />
       <template v-else>
-        <ReportTable :report="data" />
-        <ReportTotal :total="data.total" />
+        <ReportSummary :report="data" />
+        <ReportCalendars v-if="viewMode === 'calendar'" :uid="uid" :report="data" />
+        <ReportTable v-else :uid="uid" :report="data" />
       </template>
     </template>
   </main>

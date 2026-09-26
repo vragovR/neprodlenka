@@ -64,6 +64,7 @@ function dayTitle(day: AttendanceDay) {
             <AttendanceCell
               :status="status(d.date, r.child_id)"
               :disabled="!d.school || d.date > now"
+              :blank="!d.school"
               @toggle="emit('toggle', d.date, r.child_id)"
             />
           </td>
@@ -116,14 +117,6 @@ thead .today {
   background: var(--accent-soft);
 }
 
-.off {
-  background: var(--surface-muted);
-}
-
-.off .wd {
-  color: var(--danger);
-}
-
 thead .name {
   z-index: 3;
 }
@@ -164,12 +157,10 @@ thead .name {
   background: var(--accent-soft);
 }
 
-.off {
-  background: var(--surface-muted);
-}
-
+.off .num,
 .off .wd {
-  color: var(--danger);
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 .num,

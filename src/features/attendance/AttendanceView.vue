@@ -5,6 +5,7 @@ import { getAttendance, putAttendance } from '@/api'
 import { errorMessage } from '@/api/client'
 import type { MarkChange, Status } from '@/api/types'
 import { useRequest } from '@/composables/useRequest'
+import { viewMode } from '@/composables/useViewMode'
 import { toast } from '@/composables/useToast'
 import { isMonthKey, monthOf, today } from '@/utils/format'
 import { routeParam } from '@/utils/route'
@@ -12,6 +13,8 @@ import MonthSwitcher from '@/components/MonthSwitcher.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiEmpty from '@/components/ui/UiEmpty.vue'
 import UiSpinner from '@/components/ui/UiSpinner.vue'
+import ViewToggle from '@/components/ViewToggle.vue'
+import AttendanceCalendars from './AttendanceCalendars.vue'
 import AttendanceTable from './AttendanceTable.vue'
 
 const route = useRoute()
@@ -80,6 +83,7 @@ onBeforeRouteLeave(confirmLeave)
     <div class="page-head">
       <h1>Отметки</h1>
       <MonthSwitcher v-model="month" />
+      <ViewToggle />
     </div>
 
     <UiEmpty v-if="error" title="Не удалось загрузить" :text="error.message">
@@ -96,12 +100,22 @@ onBeforeRouteLeave(confirmLeave)
     <UiEmpty v-else-if="!data.children.length" title="Нет детей" text="Добавьте детей на вкладке «Дети»." />
     <template v-else>
       <div class="toolbar">
-        <p class="muted hint">
-          Нажмите на ячейку: ✓ обедает → ✕ не обедает → — без отметки. Точка под датой — в группе было сообщение (синяя — отметка ещё идёт). Серые столбцы — неучебные дни. «К оплате» — по сохранённым отметкам.
+        <p v-if="viewMode === 'calendar'" class="muted hint">
+          Нажмите на день: обедает (зелёный) → не обедает (красный) → без отметки. Бледные дни — неучебные. Сумма — по сохранённым отметкам.
+        </p>
+        <p v-else class="muted hint">
+          Нажмите на ячейку: ✓ обедает → ✕ не обедает → серая — без отметки. Точка под датой — в группе было сообщение (синяя — отметка ещё идёт). Бледные даты — неучебные дни. «К оплате» — по сохранённым отметкам.
         </p>
         <UiButton variant="primary" :disabled="!changes.size" :loading="saving" @click="save">Сохранить</UiButton>
       </div>
-      <AttendanceTable :days="data.days" :rows="data.children" :status="status" @toggle="toggle" />
+      <AttendanceCalendars
+        v-if="viewMode === 'calendar'"
+        :days="data.days"
+        :rows="data.children"
+        :status="status"
+        @toggle="toggle"
+      />
+      <AttendanceTable v-else :days="data.days" :rows="data.children" :status="status" @toggle="toggle" />
     </template>
   </main>
 </template>

@@ -43,17 +43,10 @@ func RenderMonth(month time.Time, r report.Report, url string, p Payment) Messag
 	rows := make([]monthRow, 0, len(r.Children))
 	meals := 0
 	for _, c := range r.Children {
-		price := c.Price
-		if c.Present > 0 {
-			price = 0
-			if c.Total%int64(c.Present) == 0 {
-				price = c.Total / int64(c.Present)
-			}
-		}
 		rows = append(rows, monthRow{
 			Name:  c.LastName + " " + c.FirstName,
 			Days:  plural(c.Present, "день", "дня", "дней"),
-			Price: price,
+			Price: c.MealPrice(),
 			Total: c.Total,
 		})
 		meals += c.Present

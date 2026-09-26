@@ -7,7 +7,7 @@ const { status, blank = false } = defineProps<{ status: Status | null; blank?: b
 <template>
   <span v-if="status === 'present'" class="mark present" title="Обедает">✓</span>
   <span v-else-if="status === 'absent'" class="mark absent" title="Не обедает">✕</span>
-  <span v-else-if="!blank" class="mark none" title="Нет отметки">—</span>
+  <span v-else-if="!blank" class="mark none" title="Нет отметки" />
   <span v-else class="mark" />
 </template>
 
@@ -33,6 +33,6 @@ const { status, blank = false } = defineProps<{ status: Status | null; blank?: b
 }
 
 .none {
-  color: var(--text-muted);
+  background: var(--surface-muted);
 }
 </style>

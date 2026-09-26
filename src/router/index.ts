@@ -38,6 +38,12 @@ const router = createRouter({
       props: true,
     },
     {
+      path: '/report/:uid/child/:id',
+      name: 'child',
+      component: () => import('@/features/child/ChildView.vue'),
+      props: true,
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFoundView.vue'),
