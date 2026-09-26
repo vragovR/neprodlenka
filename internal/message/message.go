@@ -32,8 +32,9 @@ type dayData struct {
 	CloseTime string
 	Closed    bool
 	Absent    []string
+	Present   []string
+	People    string
 	URL       string
-	Rest      int
 }
 
 type Day struct {
@@ -48,10 +49,12 @@ func Render(d Day) Message {
 	children := slices.Clone(d.Children)
 	names.Sort(children, func(c store.DayChild) (string, string) { return c.LastName, c.FirstName })
 
-	var absent []string
+	var absent, present []string
 	for _, c := range children {
 		if c.Status == store.Absent {
 			absent = append(absent, c.LastName+" "+c.FirstName)
+		} else {
+			present = append(present, c.LastName+" "+c.FirstName)
 		}
 	}
 
@@ -61,7 +64,8 @@ func Render(d Day) Message {
 		CloseTime: d.CloseTime,
 		Closed:    d.Closed,
 		Absent:    absent,
-		Rest:      len(children) - len(absent),
+		Present:   present,
+		People:    plural(len(present), "человек", "человека", "человек"),
 		URL:       d.URL,
 	})
 	if err != nil {

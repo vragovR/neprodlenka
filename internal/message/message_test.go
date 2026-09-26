@@ -36,7 +36,7 @@ func TestRender(t *testing.T) {
 
 ❌ Не обедают (1):
 Сидоров Коля
-✅ Остальные 2 — обедают
+✅ Обедают (2)
 
 <a href="https://school.test/report/u1">Открыть отчёт за месяц</a>`,
 			buttons: buttons,
@@ -83,18 +83,34 @@ func TestRender(t *testing.T) {
 				{LastName: "Иванов", FirstName: "Петя", Status: store.Present},
 				{LastName: "Козлова", FirstName: "Аня", Status: store.Absent},
 			},
-			text: `Спасибо! Отметка на обед <b>26 сентября (суббота)</b> закрыта.
+			text: `Спасибо! Сбор информации по обеду на <b>26 сентября (суббота)</b> завершён.
 
 ❌ Не обедают (1):
 Козлова Аня
-✅ Остальные 1 — обедают
+✅ Обедают (1):
+Иванов Петя
+
+<a href="https://school.test/report/u1">Открыть отчёт за месяц</a>`,
+		},
+		{
+			name:   "closed, nobody absent",
+			closed: true,
+			children: []store.DayChild{
+				{LastName: "Козлова", FirstName: "Аня"},
+				{LastName: "Иванов", FirstName: "Петя", Status: store.Present},
+			},
+			text: `Спасибо! Сбор информации по обеду на <b>26 сентября (суббота)</b> завершён.
+
+✅ Обедают все 2 человека:
+Иванов Петя
+Козлова Аня
 
 <a href="https://school.test/report/u1">Открыть отчёт за месяц</a>`,
 		},
 		{
 			name:   "closed, no children",
 			closed: true,
-			text: `Спасибо! Отметка на обед <b>26 сентября (суббота)</b> закрыта.
+			text: `Спасибо! Сбор информации по обеду на <b>26 сентября (суббота)</b> завершён.
 
 <a href="https://school.test/report/u1">Открыть отчёт за месяц</a>`,
 		},
@@ -126,7 +142,7 @@ func TestRenderWeekday(t *testing.T) {
 		if i == 7 {
 			date = time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
 		}
-		if text := Render(Day{Date: date, Closed: true}).Text; !strings.Contains(text, "Отметка на обед <b>"+w+"</b> закрыта.") {
+		if text := Render(Day{Date: date, Closed: true}).Text; !strings.Contains(text, "по обеду на <b>"+w+"</b> завершён.") {
 			t.Errorf("text:\n%s\nwant %q", text, w)
 		}
 	}

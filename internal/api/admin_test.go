@@ -483,7 +483,7 @@ func TestDebugClose(t *testing.T) {
 	}
 
 	edit := e.a.MAX.NextEdit(t)
-	if edit.MessageID != "m7" || !strings.Contains(edit.Message.Text, "закрыта") {
+	if edit.MessageID != "m7" || !strings.Contains(edit.Message.Text, "завершён") {
 		t.Errorf("edit %s:\n%s", edit.MessageID, edit.Message.Text)
 	}
 	var n int

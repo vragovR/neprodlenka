@@ -188,7 +188,7 @@ func TestTickClose(t *testing.T) {
 	}
 
 	edit := a.MAX.NextEdit(t)
-	if !strings.HasPrefix(edit.Message.Text, "Спасибо! Отметка на обед <b>26 сентября (суббота)</b> закрыта.") {
+	if !strings.HasPrefix(edit.Message.Text, "Спасибо! Сбор информации по обеду на <b>26 сентября (суббота)</b> завершён.") {
 		t.Errorf("text:\n%s", edit.Message.Text)
 	}
 	if len(edit.Message.Buttons) != 0 {
@@ -227,7 +227,7 @@ func TestTickClosesOnlyTodayInWindow(t *testing.T) {
 			if got := marks(t, a, tt.date); len(got) != 2 {
 				t.Errorf("marks = %v, want 2 present", got)
 			}
-			if edit := a.MAX.NextEdit(t); !strings.Contains(edit.Message.Text, "Отметка на обед <b>26 сентября (суббота)</b> закрыта.") {
+			if edit := a.MAX.NextEdit(t); !strings.Contains(edit.Message.Text, "Сбор информации по обеду на <b>26 сентября (суббота)</b> завершён.") {
 				t.Errorf("text:\n%s", edit.Message.Text)
 			}
 		})

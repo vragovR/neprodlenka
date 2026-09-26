@@ -65,7 +65,7 @@ func TestBuildOpen(t *testing.T) {
 
 ❌ Не обедают (1):
 Сидоров Коля
-✅ Остальные 3 — обедают
+✅ Обедают (3)
 
 <a href="https://school.test/report/`
 	if !strings.HasPrefix(msg.Text, want) {
@@ -91,11 +91,14 @@ func TestBuildClosed(t *testing.T) {
 		t.Fatal("ok = false, want true")
 	}
 
-	want := `Спасибо! Отметка на обед <b>26 сентября (суббота)</b> закрыта.
+	want := `Спасибо! Сбор информации по обеду на <b>26 сентября (суббота)</b> завершён.
 
 ❌ Не обедают (1):
 Сидоров Коля
-✅ Остальные 3 — обедают
+✅ Обедают (3):
+Иванов Петя
+Козлова Аня
+Петрова Маша
 
 <a href="https://school.test/report/`
 	if !strings.HasPrefix(msg.Text, want) {
