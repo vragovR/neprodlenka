@@ -7,10 +7,10 @@ import { viewMode } from '@/composables/useViewMode'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiEmpty from '@/components/ui/UiEmpty.vue'
 import UiSpinner from '@/components/ui/UiSpinner.vue'
+import MonthSummary from '@/components/MonthSummary.vue'
 import ViewToggle from '@/components/ViewToggle.vue'
 import ReportCalendars from './ReportCalendars.vue'
 import ReportTable from './ReportTable.vue'
-import ReportSummary from './ReportSummary.vue'
 
 const { uid } = defineProps<{ uid: string }>()
 
@@ -32,7 +32,12 @@ onMounted(run)
       </div>
       <UiEmpty v-if="!data.children.length" title="В этом месяце отметок нет" />
       <template v-else>
-        <ReportSummary :report="data" />
+        <MonthSummary
+          :children="data.children.length"
+          :days="data.days.filter((d) => d.school).length"
+          :meals="data.children.reduce((sum, c) => sum + c.present, 0)"
+          :total="data.total"
+        />
         <ReportCalendars v-if="viewMode === 'calendar'" :uid="uid" :report="data" />
         <ReportTable v-else :uid="uid" :report="data" />
       </template>

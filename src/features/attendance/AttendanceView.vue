@@ -13,6 +13,7 @@ import MonthSwitcher from '@/components/MonthSwitcher.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiEmpty from '@/components/ui/UiEmpty.vue'
 import UiSpinner from '@/components/ui/UiSpinner.vue'
+import MonthSummary from '@/components/MonthSummary.vue'
 import ViewToggle from '@/components/ViewToggle.vue'
 import AttendanceCalendars from './AttendanceCalendars.vue'
 import AttendanceTable from './AttendanceTable.vue'
@@ -38,6 +39,10 @@ const changes = ref(new Map<string, MarkChange>())
 watch(data, () => (changes.value = new Map()))
 
 const filled = computed(() => !!data.value?.days.some((d) => !d.school))
+
+const meals = computed(
+  () => data.value?.children.reduce((sum, c) => sum + Object.values(c.marks).filter((s) => s === 'present').length, 0) ?? 0,
+)
 
 const saved = (date: string, childId: number): Status | null =>
   data.value?.children.find((c) => c.child_id === childId)?.marks[date] ?? null
@@ -99,6 +104,12 @@ onBeforeRouteLeave(confirmLeave)
     </UiEmpty>
     <UiEmpty v-else-if="!data.children.length" title="Нет детей" text="Добавьте детей на вкладке «Дети»." />
     <template v-else>
+      <MonthSummary
+        :children="data.children.length"
+        :days="data.days.filter((d) => d.school).length"
+        :meals="meals"
+        :total="data.children.reduce((sum, c) => sum + c.total, 0)"
+      />
       <div class="toolbar">
         <p v-if="viewMode === 'calendar'" class="muted hint">
           Нажмите на день: обедает (зелёный) → не обедает (красный) → без отметки. Бледные дни — неучебные. Сумма — по сохранённым отметкам.

@@ -1,21 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Report } from '@/api/types'
 import { formatMoney, plural } from '@/utils/format'
 
-const { report } = defineProps<{ report: Report }>()
+const { children, days, meals, total } = defineProps<{
+  children: number
+  days: number
+  meals: number
+  total: number
+}>()
 
-const tiles = computed(() => {
-  const children = report.children.length
-  const days = report.days.filter((d) => d.school).length
-  const meals = report.children.reduce((sum, c) => sum + c.present, 0)
-  return [
-    { value: String(children), label: plural(children, ['ребёнок', 'ребёнка', 'детей']) },
-    { value: String(days), label: `${plural(days, ['учебный день', 'учебных дня', 'учебных дней'])} в месяце` },
-    { value: String(meals), label: `${plural(meals, ['обед', 'обеда', 'обедов'])} всего` },
-    { value: formatMoney(report.total), label: 'сумма по классу' },
-  ]
-})
+const tiles = computed(() => [
+  { value: String(children), label: plural(children, ['ребёнок', 'ребёнка', 'детей']) },
+  { value: String(days), label: `${plural(days, ['учебный день', 'учебных дня', 'учебных дней'])} в месяце` },
+  { value: String(meals), label: `${plural(meals, ['обед', 'обеда', 'обедов'])} всего` },
+  { value: formatMoney(total), label: 'сумма по классу' },
+])
 </script>
 
 <template>
