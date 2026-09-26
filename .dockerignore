@@ -1,0 +1,17 @@
+.git
+.idea
+.env
+.env.*
+.DS_Store
+data
+*.md
+nginx
+node_modules
+dist
+src
+.eslintcache
+.oxlintrc.json
+*.ts
+*.json
+index.html
+bin

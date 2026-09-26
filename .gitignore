@@ -1,0 +1,14 @@
+.DS_Store
+.idea/
+.env
+.env.*
+!.env.dist
+*.log
+
+/data
+
+/node_modules/
+/dist/
+.eslintcache
+*.tsbuildinfo
+/bin
