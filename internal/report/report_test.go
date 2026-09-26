@@ -52,15 +52,21 @@ func TestBuild(t *testing.T) {
 	if r.Month != "2026-02" {
 		t.Errorf("month = %s", r.Month)
 	}
-	if got := strings.Join(r.Days, ","); got != "2026-02-01,2026-02-02,2026-02-03,2026-02-10" {
-		t.Errorf("days = %s", got)
+	var school []string
+	for _, d := range r.Days {
+		if d.School {
+			school = append(school, d.Date)
+		}
+	}
+	if len(r.Days) != 28 || r.Days[27].Date != "2026-02-28" || strings.Join(school, ",") != "2026-02-01,2026-02-02,2026-02-03" {
+		t.Errorf("days = %+v", r.Days)
 	}
 
 	var rows []string
 	for _, c := range r.Children {
 		rows = append(rows, row(c))
 	}
-	if got, want := strings.Join(rows, "; "), "Иванов ++x+; Козлова -x--; Сидоров +---"; got != want {
+	if got, want := strings.Join(rows, "; "), "Иванов ++x------+------------------; Козлова -x--------------------------; Сидоров +---------------------------"; got != want {
 		t.Errorf("rows = %s, want %s", got, want)
 	}
 

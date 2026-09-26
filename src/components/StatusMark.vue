@@ -5,8 +5,8 @@ const { status, blank = false } = defineProps<{ status: Status | null; blank?: b
 </script>
 
 <template>
-  <span v-if="status === 'present'" class="mark present" title="Придёт">✓</span>
-  <span v-else-if="status === 'absent'" class="mark absent" title="Не придёт">✕</span>
+  <span v-if="status === 'present'" class="mark present" title="Обедает">✓</span>
+  <span v-else-if="status === 'absent'" class="mark absent" title="Не обедает">✕</span>
   <span v-else-if="!blank" class="mark none" title="Нет отметки">—</span>
   <span v-else class="mark" />
 </template>

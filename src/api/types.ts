@@ -39,6 +39,7 @@ export interface AttendanceDay {
   date: string
   published: boolean
   closed: boolean
+  school: boolean
 }
 
 export interface AttendanceRow extends PersonName {
@@ -67,9 +68,14 @@ export interface ReportRow extends PersonName {
   total: number
 }
 
+export interface ReportDay {
+  date: string
+  school: boolean
+}
+
 export interface Report {
   month: string
-  days: string[]
+  days: ReportDay[]
   children: ReportRow[]
   total: number
 }

@@ -213,6 +213,7 @@ type attendanceDay struct {
 	Date      string `json:"date"`
 	Published bool   `json:"published"`
 	Closed    bool   `json:"closed"`
+	School    bool   `json:"school"`
 }
 
 type attendanceRow struct {
@@ -287,7 +288,7 @@ func TestAttendanceGet(t *testing.T) {
 
 	a := getAttendance(t, e, c)
 
-	if len(a.Days) != 28 || a.Days[0].Date != "2026-09-01" || a.Days[4].Date != "2026-09-07" {
+	if len(a.Days) != 30 || a.Days[0].Date != "2026-09-01" || !a.Days[3].School || a.Days[4].School || a.Days[5].School || !a.Days[6].School {
 		t.Fatalf("days = %+v", a.Days)
 	}
 	states := map[string]attendanceDay{}

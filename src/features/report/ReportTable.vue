@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Report } from '@/api/types'
-import { dayOfMonth, formatMoney, isWeekend, shortName, today, weekday, weekdaysShort } from '@/utils/format'
+import { dayOfMonth, formatMoney, shortName, today, weekday, weekdaysShort } from '@/utils/format'
 import StatusMark from '@/components/StatusMark.vue'
 
 const { report } = defineProps<{ report: Report }>()
@@ -13,20 +13,25 @@ const now = today()
       <thead>
         <tr>
           <th class="name">Ребёнок</th>
-          <th v-for="d in report.days" :key="d" :class="['day', { weekend: isWeekend(d), today: d === now }]">
-            <span class="num">{{ dayOfMonth(d) }}</span>
-            <span class="wd">{{ weekdaysShort[weekday(d)] }}</span>
+          <th
+            v-for="d in report.days"
+            :key="d.date"
+            :class="['day', { off: !d.school, today: d.date === now }]"
+            :title="d.school ? undefined : 'Неучебный день'"
+          >
+            <span class="num">{{ dayOfMonth(d.date) }}</span>
+            <span class="wd">{{ weekdaysShort[weekday(d.date)] }}</span>
           </th>
-          <th class="sum">Был</th>
-          <th class="sum">Не был</th>
+          <th class="sum">Обедал</th>
+          <th class="sum">Не обедал</th>
           <th class="sum pay">К оплате</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(row, i) in report.children" :key="i">
           <th class="name" scope="row">{{ shortName(row) }}</th>
-          <td v-for="(status, j) in row.marks" :key="j" class="day">
-            <StatusMark :status="status" :blank="(report.days[j] ?? '') > now" />
+          <td v-for="(status, j) in row.marks" :key="j" :class="['day', { off: !report.days[j]?.school }]">
+            <StatusMark :status="status" :blank="!report.days[j]?.school || (report.days[j]?.date ?? '') > now" />
           </td>
           <td class="sum">{{ row.present }}</td>
           <td class="sum">{{ row.absent }}</td>
@@ -105,7 +110,11 @@ thead .name {
   font-weight: 500;
 }
 
-.weekend .wd {
+.off {
+  background: var(--surface-muted);
+}
+
+.off .wd {
   color: var(--danger);
 }
 

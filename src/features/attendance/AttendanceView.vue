@@ -6,7 +6,7 @@ import { errorMessage } from '@/api/client'
 import type { MarkChange, Status } from '@/api/types'
 import { useRequest } from '@/composables/useRequest'
 import { toast } from '@/composables/useToast'
-import { isMonthKey, monthDates, monthOf, today } from '@/utils/format'
+import { isMonthKey, monthOf, today } from '@/utils/format'
 import { routeParam } from '@/utils/route'
 import MonthSwitcher from '@/components/MonthSwitcher.vue'
 import UiButton from '@/components/ui/UiButton.vue'
@@ -34,7 +34,7 @@ watch(month, run, { immediate: true })
 const changes = ref(new Map<string, MarkChange>())
 watch(data, () => (changes.value = new Map()))
 
-const filled = computed(() => !!data.value && data.value.days.length < monthDates(data.value.month).length)
+const filled = computed(() => !!data.value?.days.some((d) => !d.school))
 
 const saved = (date: string, childId: number): Status | null =>
   data.value?.children.find((c) => c.child_id === childId)?.marks[date] ?? null
@@ -97,7 +97,7 @@ onBeforeRouteLeave(confirmLeave)
     <template v-else>
       <div class="toolbar">
         <p class="muted hint">
-          Нажмите на ячейку: ✓ придёт → ✕ не придёт → — без отметки. Точка под датой — в группе было сообщение (синяя — отметка ещё идёт). «К оплате» — по сохранённым отметкам.
+          Нажмите на ячейку: ✓ обедает → ✕ не обедает → — без отметки. Точка под датой — в группе было сообщение (синяя — отметка ещё идёт). Серые столбцы — неучебные дни. «К оплате» — по сохранённым отметкам.
         </p>
         <UiButton variant="primary" :disabled="!changes.size" :loading="saving" @click="save">Сохранить</UiButton>
       </div>

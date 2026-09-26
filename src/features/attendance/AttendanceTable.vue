@@ -21,6 +21,9 @@ watch(
 )
 
 function dayTitle(day: AttendanceDay) {
+  if (!day.school) {
+    return 'Неучебный день'
+  }
   if (day.date > now) {
     return 'Ещё не наступил'
   }
@@ -40,7 +43,7 @@ function dayTitle(day: AttendanceDay) {
           <th
             v-for="d in days"
             :key="d.date"
-            :class="['day', { today: d.date === now }]"
+            :class="['day', { today: d.date === now, off: !d.school }]"
             :title="dayTitle(d)"
           >
             <span class="num">{{ dayOfMonth(d.date) }}</span>
@@ -57,10 +60,10 @@ function dayTitle(day: AttendanceDay) {
             <span class="short">{{ shortName(r) }}</span>
             <span v-if="!r.active" class="inactive muted">деактивирован</span>
           </th>
-          <td v-for="d in days" :key="d.date" :class="['day', { today: d.date === now }]">
+          <td v-for="d in days" :key="d.date" :class="['day', { today: d.date === now, off: !d.school }]">
             <AttendanceCell
               :status="status(d.date, r.child_id)"
-              :disabled="d.date > now"
+              :disabled="!d.school || d.date > now"
               @toggle="emit('toggle', d.date, r.child_id)"
             />
           </td>
@@ -113,6 +116,14 @@ thead .today {
   background: var(--accent-soft);
 }
 
+.off {
+  background: var(--surface-muted);
+}
+
+.off .wd {
+  color: var(--danger);
+}
+
 thead .name {
   z-index: 3;
 }
@@ -151,6 +162,14 @@ thead .name {
 
 .today {
   background: var(--accent-soft);
+}
+
+.off {
+  background: var(--surface-muted);
+}
+
+.off .wd {
+  color: var(--danger);
 }
 
 .num,

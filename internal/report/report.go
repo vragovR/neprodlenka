@@ -8,10 +8,15 @@ import (
 )
 
 type Report struct {
-	Month    string   `json:"month"`
-	Days     []string `json:"days"`
-	Children []Row    `json:"children"`
-	Total    int64    `json:"total"`
+	Month    string `json:"month"`
+	Days     []Day  `json:"days"`
+	Children []Row  `json:"children"`
+	Total    int64  `json:"total"`
+}
+
+type Day struct {
+	Date   string `json:"date"`
+	School bool   `json:"school"`
 }
 
 type Row struct {
@@ -26,22 +31,18 @@ type Row struct {
 }
 
 func Build(month time.Time, noSchoolDays []string, children []store.Child, marks []store.Mark) Report {
-	marked := map[string]bool{}
 	byChild := map[int64]map[string]store.Mark{}
 	for _, m := range marks {
-		marked[m.Date] = true
 		if byChild[m.ChildID] == nil {
 			byChild[m.ChildID] = map[string]store.Mark{}
 		}
 		byChild[m.ChildID][m.Date] = m
 	}
 
-	r := Report{Month: month.Format("2006-01"), Days: []string{}, Children: []Row{}}
+	r := Report{Month: month.Format("2006-01"), Days: []Day{}, Children: []Row{}}
 	for d := month; d.Month() == month.Month(); d = d.AddDate(0, 0, 1) {
 		date := d.Format(time.DateOnly)
-		if marked[date] || !slices.Contains(noSchoolDays, date) {
-			r.Days = append(r.Days, date)
-		}
+		r.Days = append(r.Days, Day{Date: date, School: !slices.Contains(noSchoolDays, date)})
 	}
 
 	for _, c := range children {
@@ -56,8 +57,8 @@ func Build(month time.Time, noSchoolDays []string, children []store.Child, marks
 			Price:      c.Price,
 			Marks:      make([]*string, len(r.Days)),
 		}
-		for i, date := range r.Days {
-			m, ok := childMarks[date]
+		for i, day := range r.Days {
+			m, ok := childMarks[day.Date]
 			if !ok {
 				continue
 			}

@@ -16,7 +16,7 @@ const { data, error, run } = useRequest(() => getAttendance(month.value))
 watch(month, run, { immediate: true })
 defineExpose({ reload: run })
 
-const days = computed(() => new Map<string, AttendanceDay>(data.value?.days.map((d) => [d.date, d])))
+const days = computed(() => new Map<string, AttendanceDay>(data.value?.days.filter((d) => d.school).map((d) => [d.date, d])))
 
 watchEffect(() => {
   const loaded = data.value?.month === monthOf(date.value)

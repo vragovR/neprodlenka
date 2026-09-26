@@ -29,8 +29,10 @@ func TestReport(t *testing.T) {
 		t.Fatalf("status = %d, body %s", w.Code, w.Body)
 	}
 	r := decode[struct {
-		Month    string   `json:"month"`
-		Days     []string `json:"days"`
+		Month string `json:"month"`
+		Days  []struct {
+			School bool `json:"school"`
+		} `json:"days"`
 		Children []struct {
 			LastName string    `json:"last_name"`
 			Marks    []*string `json:"marks"`
@@ -41,8 +43,8 @@ func TestReport(t *testing.T) {
 		Total int64 `json:"total"`
 	}](t, w.Body.String())
 
-	if r.Month != "2026-09" || len(r.Days) != 28 {
-		t.Errorf("month %s, %d days, want 2026-09 and 28", r.Month, len(r.Days))
+	if r.Month != "2026-09" || len(r.Days) != 30 || r.Days[4].School || !r.Days[6].School {
+		t.Errorf("month %s, days %+v", r.Month, r.Days)
 	}
 	var got []string
 	for _, ch := range r.Children {

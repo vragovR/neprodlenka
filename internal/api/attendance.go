@@ -14,6 +14,7 @@ type attendanceDayJSON struct {
 	Date      string `json:"date"`
 	Published bool   `json:"published"`
 	Closed    bool   `json:"closed"`
+	School    bool   `json:"school"`
 }
 
 type attendanceRowJSON struct {
@@ -56,14 +57,12 @@ func (h *handler) getAttendance(w http.ResponseWriter, r *http.Request) {
 	days := []attendanceDayJSON{}
 	for d := month; d.Month() == month.Month(); d = d.AddDate(0, 0, 1) {
 		date := d.Format(time.DateOnly)
-		if slices.Contains(noSchool, date) {
-			continue
-		}
 		post, hasPost := posts[date]
 		days = append(days, attendanceDayJSON{
 			Date:      date,
 			Published: hasPost && post.MessageID != "",
 			Closed:    hasPost && post.Status == store.PostClosed,
+			School:    !slices.Contains(noSchool, date),
 		})
 	}
 
