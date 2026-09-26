@@ -12,3 +12,5 @@
 .eslintcache
 *.tsbuildinfo
 /bin
+
+/PROD.md
