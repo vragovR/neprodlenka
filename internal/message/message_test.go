@@ -36,7 +36,9 @@ func TestRender(t *testing.T) {
 
 ❌ Не обедают (1):
 Сидоров Коля
-✅ Обедают (2)
+✅ Обедают (2):
+Иванов Петя
+Козлова Аня
 
 <a href="https://school.test/report/u1">Открыть отчёт за месяц</a>`,
 			buttons: buttons,
@@ -48,7 +50,8 @@ func TestRender(t *testing.T) {
 			},
 			text: intro + `
 
-✅ Обедают все (1)
+✅ Обедают все 1 человек:
+Козлова Аня
 
 <a href="https://school.test/report/u1">Открыть отчёт за месяц</a>`,
 			buttons: buttons,

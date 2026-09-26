@@ -119,7 +119,7 @@ func TestTickPublish(t *testing.T) {
 	if len(sent) != 1 {
 		t.Fatalf("sent %d, want 1", len(sent))
 	}
-	if !strings.Contains(sent[0].Text, "✅ Обедают все (2)") {
+	if !strings.Contains(sent[0].Text, "✅ Обедают все 2 человека:") {
 		t.Errorf("text:\n%s", sent[0].Text)
 	}
 	if len(sent[0].Buttons) != 1 {
