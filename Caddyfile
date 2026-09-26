@@ -1,0 +1,3 @@
+neprodlenka.ru {
+	reverse_proxy nginx:80
+}
