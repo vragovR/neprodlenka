@@ -3,7 +3,7 @@ import { computed, ref, useTemplateRef } from 'vue'
 import { debugCloseDay, debugDeleteDay, debugDeleteMonth, debugSendDay, debugSendMonth, debugSummaries } from '@/api'
 import type { AttendanceDay } from '@/api/types'
 import { useRequest } from '@/composables/useRequest'
-import { formatDate, isWeekend, monthOf, monthTitle, today } from '@/utils/format'
+import { formatDate, monthOf, monthTitle, today } from '@/utils/format'
 import MonthPicker from '@/components/MonthPicker.vue'
 import DebugActionCard, { type DebugAction } from './DebugActionCard.vue'
 import DebugDayPicker from './DebugDayPicker.vue'
@@ -26,12 +26,17 @@ const dayAction = computed((): DebugAction | undefined => {
   if (sendState.value?.published) {
     return { label: `Удалить за ${date}`, run: deleteDay, danger: true, confirm: `Удалить сообщение за ${date} из группы?` }
   }
-  if (sendState.value && !isWeekend(sendDate.value)) {
+  if (sendState.value && sendDate.value <= today()) {
     return { label: `Отправить за ${date}`, run: sendDay }
   }
   return undefined
 })
-const dayNote = computed(() => (sendState.value === undefined ? '' : 'Неучебный день'))
+const dayNote = computed(() => {
+  if (!sendState.value) {
+    return sendState.value === null ? 'Неучебный день' : ''
+  }
+  return sendDate.value > today() ? 'Будущий день' : ''
+})
 
 const monthAction = computed((): DebugAction => {
   const title = monthTitle(month.value)

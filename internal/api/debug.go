@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"neprodlenka/internal/bot"
+	"neprodlenka/internal/clock"
 	"neprodlenka/internal/store"
 )
 
@@ -30,8 +31,12 @@ func (h *handler) debugDay(w http.ResponseWriter, r *http.Request) {
 		h.internalError(w, err)
 		return
 	}
-	if !school || date.Weekday() == time.Saturday || date.Weekday() == time.Sunday {
+	switch {
+	case !school:
 		writeError(w, http.StatusBadRequest, "validation", "В неучебный день сообщение не отправить")
+		return
+	case date.After(clock.Today(h.now())):
+		writeError(w, http.StatusBadRequest, "validation", "За будущий день сообщение не отправить")
 		return
 	}
 	published, err := h.bot.Publish(r.Context(), date)

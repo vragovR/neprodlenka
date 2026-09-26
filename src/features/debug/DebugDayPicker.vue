@@ -3,7 +3,7 @@ import { computed, ref, watch, watchEffect } from 'vue'
 import { getAttendance } from '@/api'
 import type { AttendanceDay } from '@/api/types'
 import { useRequest } from '@/composables/useRequest'
-import { isWeekend, monthOf } from '@/utils/format'
+import { monthOf } from '@/utils/format'
 import DatePicker from '@/components/DatePicker.vue'
 import DebugLegend from './DebugLegend.vue'
 
@@ -25,7 +25,7 @@ watchEffect(() => {
 
 function dayClass(d: string): Record<string, boolean> {
   const day = days.value.get(d)
-  const off = isWeekend(d) || (!!data.value && !day)
+  const off = !!data.value && !day
   const dot = !!day?.published
   if (mode === 'message') {
     return { off, dot, message: dot }

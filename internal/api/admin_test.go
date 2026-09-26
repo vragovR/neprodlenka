@@ -431,9 +431,9 @@ func TestDebugSend(t *testing.T) {
 		t.Errorf("bad date: status = %d, want 400", w.Code)
 	}
 	e.a.Exec(t, `INSERT INTO no_school_days (date) VALUES ('2026-09-23')`)
-	for _, date := range []string{"2026-09-23", "2026-09-26"} {
+	for _, date := range []string{"2026-09-23", "2026-09-27"} {
 		if w := e.do(t, "POST", "/api/debug/day/"+date, `{}`, c); w.Code != http.StatusBadRequest {
-			t.Errorf("no school day %s: status = %d, want 400", date, w.Code)
+			t.Errorf("no school or future day %s: status = %d, want 400", date, w.Code)
 		}
 	}
 
