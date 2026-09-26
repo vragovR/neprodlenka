@@ -53,7 +53,7 @@ func NewHandler(a *auth.Service, s *store.Store, r *bot.Redrawer, b *bot.Bot, m 
 	root := http.NewServeMux()
 	root.Handle("POST /webhook", wh)
 	root.Handle("/", requireJSON(mux))
-	return root
+	return logRequests(log, root)
 }
 
 func requireJSON(next http.Handler) http.Handler {

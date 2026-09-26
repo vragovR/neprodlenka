@@ -62,7 +62,7 @@
 | `JWT_SECRET` | Секрет сессий, не короче 32 байт: `openssl rand -hex 32`. |
 | `BASE_URL` | Адрес сайта для ссылок на отчёт. |
 | `HTTP_ADDR`, `DB_PATH` | Адрес HTTP-сервера и путь к базе. |
-| `LOG_LEVEL`, `LOG_FORMAT` | `debug`/`info`, `console`/`json`. |
+| `LOG_LEVEL`, `LOG_FORMAT` | `debug`/`info`, `console`/`json`. На `info` пишутся каждый HTTP-запрос (метод, путь, статус, время, IP; у `/api/*`, кроме входа, — тело до 4 КБ), события от MAX (вебхук или polling; у нажатий — payload, пользователь и сообщение) и действия бота. |
 
 ## Администраторы
 

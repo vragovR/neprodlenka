@@ -162,11 +162,15 @@ func (b *Bot) close(ctx context.Context, p store.Post) error {
 }
 
 func (b *Bot) HandleUpdate(ctx context.Context, u model.Update) {
-	b.log.Debug("update", zap.String("type", string(u.UpdateType)), zap.Int64("chat_id", u.ChatID))
+	fields := []zap.Field{zap.String("type", string(u.UpdateType)), zap.Int64("chat_id", u.ChatID)}
+	cb := u.GetCallback()
+	if u.UpdateType == model.UpdateMessageCallback {
+		fields = append(fields, zap.String("payload", cb.Payload), zap.Int64("user_id", cb.User.UserID), zap.String("message_id", u.MessageID))
+	}
+	b.log.Info("update", fields...)
 	if u.UpdateType != model.UpdateMessageCallback || u.ChatID != b.chatID {
 		return
 	}
-	cb := u.GetCallback()
 	err := b.HandleCallback(ctx, Callback{
 		ID:        cb.CallbackID,
 		MessageID: u.MessageID,
@@ -188,7 +192,7 @@ func (b *Bot) HandleCallback(ctx context.Context, cb Callback) error {
 
 func (b *Bot) toggle(ctx context.Context, cb Callback) (string, error) {
 	if store.Status(cb.Payload) != store.Absent {
-		b.log.Debug("unknown payload", zap.String("payload", cb.Payload))
+		b.log.Info("unknown payload", zap.String("payload", cb.Payload))
 		return "Кнопка устарела", nil
 	}
 
@@ -197,7 +201,7 @@ func (b *Bot) toggle(ctx context.Context, cb Callback) (string, error) {
 		return "Не удалось сохранить отметку, попробуйте ещё раз", fmt.Errorf("handle callback: %w", err)
 	}
 	if !ok {
-		b.log.Debug("callback ignored", zap.Int64("user_id", cb.UserID), zap.String("message_id", cb.MessageID))
+		b.log.Info("callback ignored", zap.Int64("user_id", cb.UserID), zap.String("message_id", cb.MessageID))
 		return "Отметка не принята: день уже закрыт или вы не привязаны к ребёнку", nil
 	}
 
