@@ -38,12 +38,12 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.log.Info("login", zap.String("login", req.Login), zap.String("ip", ip))
-	setCookie(w, token, int(auth.TokenTTL.Seconds()))
+	h.setCookie(w, token, int(auth.TokenTTL.Seconds()))
 	writeJSON(w, http.StatusOK, map[string]string{"login": req.Login})
 }
 
 func (h *handler) logout(w http.ResponseWriter, r *http.Request) {
-	setCookie(w, "", -1)
+	h.setCookie(w, "", -1)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -76,14 +76,14 @@ func (h *handler) internalError(w http.ResponseWriter, err error) {
 	writeError(w, http.StatusInternalServerError, "internal", "Ошибка сервера")
 }
 
-func setCookie(w http.ResponseWriter, value string, maxAge int) {
+func (h *handler) setCookie(w http.ResponseWriter, value string, maxAge int) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,
 		Value:    value,
 		Path:     "/api",
 		MaxAge:   maxAge,
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   h.secure,
 		SameSite: http.SameSiteStrictMode,
 	})
 }

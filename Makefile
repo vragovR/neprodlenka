@@ -1,4 +1,8 @@
-.PHONY: up down logs test lint build
+.PHONY: install up down logs test lint build
+
+install:
+	go mod download
+	npm ci
 
 up:
 	docker compose up --watch

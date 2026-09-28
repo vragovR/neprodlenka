@@ -35,14 +35,17 @@
 
 ## Локальный запуск
 
-Нужен Docker.
+Нужен Docker. Сайт открывается через контейнер `nginx`, у него в `compose.yaml` лейблы для двух
+прокси: OrbStack — `https://neprodlenka.local`, Traefik (провайдер docker, entrypoint на `:80`) —
+`http://prodlenka.test`. Dev-сервер Vite принимает хосты в зонах `.local` и `.test`.
 
-1. Скопировать `.env.dist` в `.env` и заполнить (см. [Конфигурация](#конфигурация)).
+1. Скопировать `.env.dist` в `.env` и заполнить (см. [Конфигурация](#конфигурация)). `BASE_URL` —
+   свой адрес сайта, со схемой `http://` или `https://`.
 2. Запустить: `make up`. Бэкенд и фронт перезапускаются при изменении файлов.
 3. Узнать ID группы: запустить с `MAX_CHAT_ID=0`, добавить бота в группу и найти `chat_id` в логах
    (`make logs`, событие `bot_added`), вписать в `.env`.
 4. Завести администратора: `docker compose exec backend go run ./cmd/neprodlenka admin add <login>`.
-5. Открыть сайт через nginx по HTTPS — по HTTP вход не сохранится (cookie сессии `Secure`).
+5. Открыть сайт по адресу из `BASE_URL`.
 
 ## Конфигурация
 
@@ -60,7 +63,7 @@
 | `SUMMARY_TIME`, `SUMMARY_UNTIL` | Окно публикации итогов месяца. |
 | `PAYMENT_CARD`, `PAYMENT_RECIPIENT` | Номер карты и получатель в итогах месяца. |
 | `JWT_SECRET` | Секрет сессий, не короче 32 байт: `openssl rand -hex 32`. |
-| `BASE_URL` | Адрес сайта для ссылок на отчёт. |
+| `BASE_URL` | Адрес сайта для ссылок на отчёт. При `https://` cookie сессии ставится с флагом `Secure`. |
 | `HTTP_ADDR`, `DB_PATH` | Адрес HTTP-сервера и путь к базе. |
 | `LOG_LEVEL`, `LOG_FORMAT` | `debug`/`info`, `console`/`json`. На `info` пишутся каждый HTTP-запрос (метод, путь, статус, время, IP; у `/api/*`, кроме входа, — тело до 4 КБ), события от MAX (вебхук или polling; у нажатий — payload, пользователь и сообщение) и действия бота. |
 
@@ -79,6 +82,7 @@ neprodlenka admin list             # список
 ## Разработка
 
 ```sh
+make install      # зависимости Go и npm
 make test         # тесты Go
 make lint         # go vet, gofmt, oxlint, eslint
 make build        # сборка бэкенда и фронта с проверкой типов

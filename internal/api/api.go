@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"mime"
 	"net/http"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -22,11 +23,12 @@ type handler struct {
 	max      bot.MAX
 	now      clock.Clock
 	baseURL  string
+	secure   bool
 	log      *zap.Logger
 }
 
 func NewHandler(a *auth.Service, s *store.Store, r *bot.Redrawer, b *bot.Bot, m bot.MAX, wh *bot.Webhook, now clock.Clock, cfg config.Config, log *zap.Logger) http.Handler {
-	h := &handler{auth: a, store: s, redrawer: r, bot: b, max: m, now: now, baseURL: cfg.BaseURL, log: log}
+	h := &handler{auth: a, store: s, redrawer: r, bot: b, max: m, now: now, baseURL: cfg.BaseURL, secure: strings.HasPrefix(cfg.BaseURL, "https://"), log: log}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/login", h.login)
