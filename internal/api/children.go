@@ -1,11 +1,14 @@
 package api
 
 import (
+	"cmp"
 	"errors"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"go.uber.org/zap"
 
@@ -13,16 +16,27 @@ import (
 	"neprodlenka/internal/store"
 )
 
-const defaultPrice = 13000
+const (
+	defaultPrice    = 13000
+	maxClubNameLen  = 100
+	clubStartLayout = "15:04"
+)
 
 type childJSON struct {
-	ID         int64   `json:"id"`
-	LastName   string  `json:"last_name"`
-	FirstName  string  `json:"first_name"`
-	MiddleName string  `json:"middle_name"`
-	Price      int64   `json:"price"`
-	Active     bool    `json:"active"`
-	ParentIDs  []int64 `json:"parent_ids"`
+	ID         int64      `json:"id"`
+	LastName   string     `json:"last_name"`
+	FirstName  string     `json:"first_name"`
+	MiddleName string     `json:"middle_name"`
+	Price      int64      `json:"price"`
+	Active     bool       `json:"active"`
+	ParentIDs  []int64    `json:"parent_ids"`
+	Clubs      []clubJSON `json:"clubs"`
+}
+
+type clubJSON struct {
+	Weekday int    `json:"weekday"`
+	Start   string `json:"start"`
+	Name    string `json:"name"`
 }
 
 type memberJSON struct {
@@ -31,6 +45,10 @@ type memberJSON struct {
 }
 
 func toChildJSON(c store.Child) childJSON {
+	clubs := []clubJSON{}
+	for _, club := range c.Clubs {
+		clubs = append(clubs, clubJSON(club))
+	}
 	return childJSON{
 		ID:         c.ID,
 		LastName:   c.LastName,
@@ -39,6 +57,7 @@ func toChildJSON(c store.Child) childJSON {
 		Price:      c.Price,
 		Active:     c.Active,
 		ParentIDs:  c.ParentIDs,
+		Clubs:      clubs,
 	}
 }
 
@@ -110,15 +129,25 @@ func (h *handler) updateChild(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		LastName   *string  `json:"last_name"`
-		FirstName  *string  `json:"first_name"`
-		MiddleName *string  `json:"middle_name"`
-		Price      *int64   `json:"price"`
-		Active     *bool    `json:"active"`
-		ParentIDs  *[]int64 `json:"parent_ids"`
+		LastName   *string     `json:"last_name"`
+		FirstName  *string     `json:"first_name"`
+		MiddleName *string     `json:"middle_name"`
+		Price      *int64      `json:"price"`
+		Active     *bool       `json:"active"`
+		ParentIDs  *[]int64    `json:"parent_ids"`
+		Clubs      *[]clubJSON `json:"clubs"`
 	}
 	if !readJSON(w, r, &req) {
 		return
+	}
+
+	var clubs []store.Club
+	if req.Clubs != nil {
+		clubs, err = normalizeClubs(*req.Clubs)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "validation", err.Error())
+			return
+		}
 	}
 
 	var validationErr error
@@ -141,6 +170,9 @@ func (h *handler) updateChild(w http.ResponseWriter, r *http.Request) {
 		if req.ParentIDs != nil {
 			c.ParentIDs = slices.Compact(slices.Sorted(slices.Values(*req.ParentIDs)))
 		}
+		if req.Clubs != nil {
+			c.Clubs = clubs
+		}
 		validationErr = validateChild(*c)
 		return validationErr
 	})
@@ -158,6 +190,30 @@ func (h *handler) updateChild(w http.ResponseWriter, r *http.Request) {
 
 	h.redrawToday(r)
 	writeJSON(w, http.StatusOK, toChildJSON(c))
+}
+
+func normalizeClubs(in []clubJSON) ([]store.Club, error) {
+	clubs := []store.Club{}
+	for _, c := range in {
+		name := strings.TrimSpace(c.Name)
+		switch {
+		case name == "":
+			return nil, errors.New("Укажите название кружка")
+		case utf8.RuneCountInString(name) > maxClubNameLen:
+			return nil, errors.New("Слишком длинное название кружка")
+		case c.Weekday < 1 || c.Weekday > 7:
+			return nil, errors.New("Укажите день недели кружка")
+		}
+		start, err := time.Parse(clubStartLayout, strings.TrimSpace(c.Start))
+		if err != nil {
+			return nil, errors.New("Укажите время начала кружка в формате ЧЧ:ММ")
+		}
+		clubs = append(clubs, store.Club{Weekday: c.Weekday, Start: start.Format(clubStartLayout), Name: name})
+	}
+	slices.SortFunc(clubs, func(a, b store.Club) int {
+		return cmp.Or(cmp.Compare(a.Weekday, b.Weekday), strings.Compare(a.Start, b.Start), strings.Compare(a.Name, b.Name))
+	})
+	return slices.Compact(clubs), nil
 }
 
 func validateChild(c store.Child) error {

@@ -19,6 +19,13 @@ type Child struct {
 	Price      int64
 	Active     bool
 	ParentIDs  []int64
+	Clubs      []Club
+}
+
+type Club struct {
+	Weekday int
+	Start   string
+	Name    string
 }
 
 func (s *Store) Children(ctx context.Context) ([]Child, error) {
@@ -32,7 +39,7 @@ func (s *Store) Children(ctx context.Context) ([]Child, error) {
 	children := []Child{}
 	index := map[int64]int{}
 	for rows.Next() {
-		c := Child{ParentIDs: []int64{}}
+		c := Child{ParentIDs: []int64{}, Clubs: []Club{}}
 		if err := rows.Scan(&c.ID, &c.LastName, &c.FirstName, &c.MiddleName, &c.Price, &c.Active); err != nil {
 			return nil, fmt.Errorf("scan child: %w", err)
 		}
@@ -60,12 +67,30 @@ func (s *Store) Children(ctx context.Context) ([]Child, error) {
 		return nil, fmt.Errorf("list parents: %w", err)
 	}
 
+	clubs, err := s.db.QueryContext(ctx, `SELECT child_id, weekday, start, name FROM child_clubs ORDER BY weekday, start, name`)
+	if err != nil {
+		return nil, fmt.Errorf("list clubs: %w", err)
+	}
+	defer clubs.Close()
+	for clubs.Next() {
+		var childID int64
+		var club Club
+		if err := clubs.Scan(&childID, &club.Weekday, &club.Start, &club.Name); err != nil {
+			return nil, fmt.Errorf("scan club: %w", err)
+		}
+		c := &children[index[childID]]
+		c.Clubs = append(c.Clubs, club)
+	}
+	if err := clubs.Err(); err != nil {
+		return nil, fmt.Errorf("list clubs: %w", err)
+	}
+
 	names.Sort(children, func(c Child) (string, string) { return c.LastName, c.FirstName })
 	return children, nil
 }
 
 func (s *Store) ChildByID(ctx context.Context, id int64) (Child, bool, error) {
-	c := Child{ID: id, ParentIDs: []int64{}}
+	c := Child{ID: id, ParentIDs: []int64{}, Clubs: []Club{}}
 	err := s.db.QueryRowContext(ctx,
 		`SELECT last_name, first_name, middle_name, price, active FROM children WHERE id = ?`, id,
 	).Scan(&c.LastName, &c.FirstName, &c.MiddleName, &c.Price, &c.Active)
@@ -88,6 +113,7 @@ func (s *Store) AddChild(ctx context.Context, c Child) (Child, error) {
 		return Child{}, fmt.Errorf("add child: %w", err)
 	}
 	c.ParentIDs = []int64{}
+	c.Clubs = []Club{}
 	return c, nil
 }
 
@@ -98,7 +124,7 @@ func (s *Store) UpdateChild(ctx context.Context, id int64, update func(*Child) e
 	}
 	defer tx.Rollback()
 
-	c := Child{ID: id, ParentIDs: []int64{}}
+	c := Child{ID: id, ParentIDs: []int64{}, Clubs: []Club{}}
 	err = tx.QueryRowContext(ctx,
 		`SELECT last_name, first_name, middle_name, price, active FROM children WHERE id = ?`, id,
 	).Scan(&c.LastName, &c.FirstName, &c.MiddleName, &c.Price, &c.Active)
@@ -126,6 +152,24 @@ func (s *Store) UpdateChild(ctx context.Context, id int64, update func(*Child) e
 		return Child{}, fmt.Errorf("get parents: %w", err)
 	}
 
+	clubs, err := tx.QueryContext(ctx,
+		`SELECT weekday, start, name FROM child_clubs WHERE child_id = ? ORDER BY weekday, start, name`, id)
+	if err != nil {
+		return Child{}, fmt.Errorf("get clubs: %w", err)
+	}
+	for clubs.Next() {
+		var club Club
+		if err := clubs.Scan(&club.Weekday, &club.Start, &club.Name); err != nil {
+			clubs.Close()
+			return Child{}, fmt.Errorf("scan club: %w", err)
+		}
+		c.Clubs = append(c.Clubs, club)
+	}
+	clubs.Close()
+	if err := clubs.Err(); err != nil {
+		return Child{}, fmt.Errorf("get clubs: %w", err)
+	}
+
 	if err := update(&c); err != nil {
 		return Child{}, err
 	}
@@ -147,6 +191,18 @@ func (s *Store) UpdateChild(ctx context.Context, id int64, update func(*Child) e
 			userID, id)
 		if err != nil {
 			return Child{}, fmt.Errorf("bind parent: %w", err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM child_clubs WHERE child_id = ?`, id); err != nil {
+		return Child{}, fmt.Errorf("delete clubs: %w", err)
+	}
+	for _, club := range c.Clubs {
+		_, err := tx.ExecContext(ctx,
+			`INSERT INTO child_clubs (child_id, weekday, start, name) VALUES (?, ?, ?, ?)`,
+			id, club.Weekday, club.Start, club.Name)
+		if err != nil {
+			return Child{}, fmt.Errorf("add club: %w", err)
 		}
 	}
 

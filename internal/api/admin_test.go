@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +36,13 @@ type child struct {
 	Price      int64   `json:"price"`
 	Active     bool    `json:"active"`
 	ParentIDs  []int64 `json:"parent_ids"`
+	Clubs      []club  `json:"clubs"`
+}
+
+type club struct {
+	Weekday int    `json:"weekday"`
+	Start   string `json:"start"`
+	Name    string `json:"name"`
 }
 
 func TestAdminRequiresLogin(t *testing.T) {
@@ -72,7 +80,7 @@ func TestChildren(t *testing.T) {
 		t.Fatalf("add: status = %d, body %s", w.Code, w.Body)
 	}
 	petya := decode[child](t, w.Body.String())
-	if petya.LastName != "Семёнов" || petya.Price != 13000 || !petya.Active || len(petya.ParentIDs) != 0 {
+	if petya.LastName != "Семёнов" || petya.Price != 13000 || !petya.Active || len(petya.ParentIDs) != 0 || petya.Clubs == nil || len(petya.Clubs) != 0 {
 		t.Errorf("added = %+v", petya)
 	}
 
@@ -89,6 +97,16 @@ func TestChildren(t *testing.T) {
 		t.Errorf("patched = %+v", got)
 	}
 
+	w = e.do(t, "PATCH", "/api/children/"+itoa(petya.ID),
+		`{"clubs":[{"weekday":3,"start":"15:00","name":" Шахматы "},{"weekday":1,"start":"14:30","name":"Робототехника"},{"weekday":3,"start":"15:00","name":"Шахматы"}]}`, c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("patch clubs: status = %d, body %s", w.Code, w.Body)
+	}
+	wantClubs := []club{{1, "14:30", "Робототехника"}, {3, "15:00", "Шахматы"}}
+	if got := decode[child](t, w.Body.String()); !slices.Equal(got.Clubs, wantClubs) || !equalIDs(got.ParentIDs, 101, 102) {
+		t.Errorf("patched clubs = %+v", got)
+	}
+
 	w = e.do(t, "GET", "/api/children", "", c)
 	if w.Code != http.StatusOK {
 		t.Fatalf("list: status = %d, body %s", w.Code, w.Body)
@@ -103,7 +121,7 @@ func TestChildren(t *testing.T) {
 	if len(list.Children) != 2 || list.Children[0].LastName != "Ёлкина" || list.Children[1].LastName != "Семёнов" {
 		t.Errorf("children = %+v", list.Children)
 	}
-	if !equalIDs(list.Children[1].ParentIDs, 101, 102) || len(list.Members) != 2 || list.Members[0].Name != "Мама Пети" {
+	if !equalIDs(list.Children[1].ParentIDs, 101, 102) || !slices.Equal(list.Children[1].Clubs, wantClubs) || len(list.Children[0].Clubs) != 0 || len(list.Members) != 2 || list.Members[0].Name != "Мама Пети" {
 		t.Errorf("list = %+v", list)
 	}
 }
@@ -122,6 +140,9 @@ func TestChildErrors(t *testing.T) {
 		{"negative price", "POST", "/api/children", `{"last_name":"Иванов","first_name":"Петя","price":-1}`, http.StatusBadRequest},
 		{"unknown field", "POST", "/api/children", `{"last_name":"Иванов","first_name":"Петя","age":7}`, http.StatusBadRequest},
 		{"clear last name", "PATCH", "/api/children/2", `{"last_name":""}`, http.StatusBadRequest},
+		{"blank club name", "PATCH", "/api/children/2", `{"clubs":[{"weekday":1,"start":"14:00","name":" "}]}`, http.StatusBadRequest},
+		{"bad club weekday", "PATCH", "/api/children/2", `{"clubs":[{"weekday":8,"start":"14:00","name":"Шахматы"}]}`, http.StatusBadRequest},
+		{"bad club start", "PATCH", "/api/children/2", `{"clubs":[{"weekday":1,"start":"25:00","name":"Шахматы"}]}`, http.StatusBadRequest},
 		{"unknown child", "PATCH", "/api/children/99", `{"price":1}`, http.StatusNotFound},
 		{"bad id", "PATCH", "/api/children/abc", `{"price":1}`, http.StatusNotFound},
 	}
