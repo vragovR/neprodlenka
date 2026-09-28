@@ -3,6 +3,7 @@ package api_test
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -109,6 +110,19 @@ func TestChildren(t *testing.T) {
 		t.Errorf("patched clubs = %+v", got)
 	}
 
+	w = e.do(t, "PATCH", "/api/children/"+itoa(petya.ID), `{"middle_name":" Олегович ","active":false}`, c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("deactivate: status = %d, body %s", w.Code, w.Body)
+	}
+	if got := decode[child](t, w.Body.String()); got.MiddleName != "Олегович" || got.Active || got.Price != 14000 ||
+		!equalIDs(got.ParentIDs, 101, 102) || !slices.Equal(got.Clubs, wantClubs) {
+		t.Errorf("deactivated = %+v", got)
+	}
+	w = e.do(t, "PATCH", "/api/children/"+itoa(petya.ID), `{"active":true}`, c)
+	if got := decode[child](t, w.Body.String()); w.Code != http.StatusOK || !got.Active || !slices.Equal(got.Clubs, wantClubs) {
+		t.Errorf("activate: status = %d, child %+v", w.Code, got)
+	}
+
 	w = e.do(t, "GET", "/api/children", "", c)
 	if w.Code != http.StatusOK {
 		t.Fatalf("list: status = %d, body %s", w.Code, w.Body)
@@ -128,6 +142,16 @@ func TestChildren(t *testing.T) {
 	}
 }
 
+func TestChildrenMAXUnavailable(t *testing.T) {
+	t.Parallel()
+	e, c := adminEnv(t)
+	e.a.MAX.SetError(errors.New("max unavailable"))
+
+	if w := e.do(t, "GET", "/api/children", "", c); w.Code != http.StatusBadGateway {
+		t.Errorf("status = %d, want 502, body %s", w.Code, w.Body)
+	}
+}
+
 func TestChildErrors(t *testing.T) {
 	t.Parallel()
 	e, c := adminEnv(t)
@@ -143,6 +167,7 @@ func TestChildErrors(t *testing.T) {
 		{"unknown field", "POST", "/api/children", `{"last_name":"Иванов","first_name":"Петя","age":7}`, http.StatusBadRequest},
 		{"clear last name", "PATCH", "/api/children/2", `{"last_name":""}`, http.StatusBadRequest},
 		{"blank club name", "PATCH", "/api/children/2", `{"clubs":[{"weekday":1,"start":"14:00","name":" "}]}`, http.StatusBadRequest},
+		{"long club name", "PATCH", "/api/children/2", `{"clubs":[{"weekday":1,"start":"14:00","name":"` + strings.Repeat("я", 101) + `"}]}`, http.StatusBadRequest},
 		{"bad club weekday", "PATCH", "/api/children/2", `{"clubs":[{"weekday":8,"start":"14:00","name":"Шахматы"}]}`, http.StatusBadRequest},
 		{"bad club start", "PATCH", "/api/children/2", `{"clubs":[{"weekday":1,"start":"25:00","name":"Шахматы"}]}`, http.StatusBadRequest},
 		{"unknown child", "PATCH", "/api/children/99", `{"price":1}`, http.StatusNotFound},
@@ -502,6 +527,34 @@ func TestDebugSend(t *testing.T) {
 	}
 }
 
+func TestDebugSendFails(t *testing.T) {
+	t.Parallel()
+	e, c := attendanceEnv(t)
+	putAttendance(t, e, c, `{"marks":[{"date":"2026-09-24","child_id":2,"status":"absent"}]}`)
+	e.a.MAX.SetSendError(errors.New("max unavailable"))
+
+	for _, path := range []string{"/api/debug/day/2026-09-25", "/api/debug/month/2026-09"} {
+		if w := e.do(t, "POST", path, `{}`, c); w.Code != http.StatusBadGateway {
+			t.Errorf("%s: status = %d, want 502, body %s", path, w.Code, w.Body)
+		}
+	}
+
+	var posts int
+	var summary sql.NullString
+	if err := e.a.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM daily_posts),
+		(SELECT message_id FROM report_months WHERE month = '2026-09')`).Scan(&posts, &summary); err != nil {
+		t.Fatal(err)
+	}
+	if posts != 0 || summary.Valid {
+		t.Errorf("posts = %d, summary = %v; want 0, NULL", posts, summary)
+	}
+
+	e.a.MAX.SetSendError(nil)
+	if w := e.do(t, "POST", "/api/debug/day/2026-09-25", `{}`, c); w.Code != http.StatusNoContent {
+		t.Errorf("retry: status = %d, body %s", w.Code, w.Body)
+	}
+}
+
 func TestDebugClose(t *testing.T) {
 	t.Parallel()
 	e, c := attendanceEnv(t)
@@ -582,5 +635,20 @@ func TestDebugDelete(t *testing.T) {
 
 	if w := e.do(t, "POST", "/api/debug/day/2026-09-24", `{}`, c); w.Code != http.StatusNoContent {
 		t.Errorf("send after delete: status = %d, body %s", w.Code, w.Body)
+	}
+}
+
+func TestDebugDeleteMAXFails(t *testing.T) {
+	t.Parallel()
+	e, c := attendanceEnv(t)
+	e.a.Exec(t, `INSERT INTO daily_posts (date, status, message_id) VALUES ('2026-09-24', 'closed', 'm7')`)
+	e.a.MAX.SetError(errors.New("max unavailable"))
+
+	if w := e.do(t, "DELETE", "/api/debug/day/2026-09-24", "", c); w.Code != http.StatusBadGateway {
+		t.Errorf("status = %d, want 502, body %s", w.Code, w.Body)
+	}
+	var posts int
+	if err := e.a.DB.QueryRow(`SELECT COUNT(*) FROM daily_posts`).Scan(&posts); err != nil || posts != 0 {
+		t.Errorf("posts = %d (%v), want 0", posts, err)
 	}
 }

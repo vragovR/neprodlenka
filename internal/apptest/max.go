@@ -20,6 +20,7 @@ type FakeMAX struct {
 	mu       sync.Mutex
 	members  []maxapi.Member
 	sendErr  error
+	err      error
 	sent     []message.Message
 	answered []Answer
 	deleted  []string
@@ -46,9 +47,18 @@ func (f *FakeMAX) SetSendError(err error) {
 	f.sendErr = err
 }
 
+func (f *FakeMAX) SetError(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.err = err
+}
+
 func (f *FakeMAX) Delete(_ context.Context, messageID string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.err != nil {
+		return f.err
+	}
 	f.deleted = append(f.deleted, messageID)
 	return nil
 }
@@ -79,7 +89,7 @@ func (f *FakeMAX) AnswerCallback(_ context.Context, callbackID, notification str
 func (f *FakeMAX) Members(context.Context) ([]maxapi.Member, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.members, nil
+	return f.members, f.err
 }
 
 func (f *FakeMAX) SetMembers(members ...maxapi.Member) {

@@ -122,6 +122,7 @@ func TestDayErrors(t *testing.T) {
 		{"bad date", "GET", "/api/days/25.09.2026", ""},
 		{"blank name", "PUT", "/api/days/2026-09-25/children/1/clubs", `{"clubs":[{"start":"10:00","name":" "}]}`},
 		{"bad start", "PUT", "/api/days/2026-09-25/children/1/clubs", `{"clubs":[{"start":"25:00","name":"Шахматы"}]}`},
+		{"long name", "PUT", "/api/days/2026-09-25/children/1/clubs", `{"clubs":[{"start":"10:00","name":"` + strings.Repeat("я", 101) + `"}]}`},
 	} {
 		if w := e.do(t, tt.method, tt.path, tt.body, c); w.Code != http.StatusBadRequest {
 			t.Errorf("%s: status = %d, want 400", tt.name, w.Code)
