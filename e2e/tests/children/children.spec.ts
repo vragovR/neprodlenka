@@ -67,6 +67,44 @@ test.describe('Children', () => {
     await expect(card.getByRole('button', { name: 'Сохранить' })).toBeHidden()
   })
 
+  test('links a parent by the card button', async ({ page, api }) => {
+    const childrenPage = new ChildrenPage(page)
+    await api.mockUpdateChild(petya)
+    await childrenPage.goto()
+    const card = childrenPage.card('Иванов Петя')
+
+    await card.getByRole('combobox').selectOption('Папа Ани')
+    await expect(card).toContainText('Папа Ани')
+    await expect(card.getByRole('combobox')).toBeHidden()
+
+    const request = page.waitForRequest('/api/children/1')
+    await card.getByRole('button', { name: 'Сохранить' }).click()
+
+    expect((await request).postDataJSON().parent_ids).toEqual([101, 102])
+    await expect(page.getByText('Сохранено')).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Сохранить' })).toBeHidden()
+    await expect(card).toContainText('Мама Пети')
+    await expect(card).toContainText('Папа Ани')
+  })
+
+  test('unlinks the last parent by the card button', async ({ page, api }) => {
+    const childrenPage = new ChildrenPage(page)
+    await api.mockUpdateChild(petya)
+    await childrenPage.goto()
+    const card = childrenPage.card('Иванов Петя')
+
+    await card.getByRole('button', { name: 'Отвязать Мама Пети' }).click()
+    await expect(card).toContainText('Родители не привязаны')
+
+    const request = page.waitForRequest('/api/children/1')
+    await card.getByRole('button', { name: 'Сохранить' }).click()
+
+    expect((await request).postDataJSON().parent_ids).toEqual([])
+    await expect(page.getByText('Сохранено')).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Сохранить' })).toBeHidden()
+    await expect(card).toContainText('Родители не привязаны')
+  })
+
   test('cancel restores the card', async ({ page }) => {
     const childrenPage = new ChildrenPage(page)
     await childrenPage.goto()
