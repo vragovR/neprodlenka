@@ -66,9 +66,10 @@ func Build(month time.Time, noSchoolDays []string, children []store.Child, marks
 			}
 			status := string(m.Status)
 			row.Marks[i] = &status
-			if m.Status == store.Present {
+			switch m.Status {
+			case store.Present:
 				row.Present++
-			} else {
+			case store.Absent:
 				row.Absent++
 			}
 			row.Total += m.Price

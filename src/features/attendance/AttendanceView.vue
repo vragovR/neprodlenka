@@ -3,7 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { getAttendance, putAttendance } from '@/api'
 import { errorMessage } from '@/api/client'
-import type { MarkChange, Status } from '@/api/types'
+import type { Status } from '@/api/types'
+import { useMarks } from '@/composables/useMarks'
 import { useRequest } from '@/composables/useRequest'
 import { viewMode } from '@/composables/useViewMode'
 import { toast } from '@/composables/useToast'
@@ -12,6 +13,8 @@ import { routeParam } from '@/utils/route'
 import MonthSwitcher from '@/components/MonthSwitcher.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiEmpty from '@/components/ui/UiEmpty.vue'
+import UiModal from '@/components/ui/UiModal.vue'
+import MessagePreview from '@/components/MessagePreview.vue'
 import UiSpinner from '@/components/ui/UiSpinner.vue'
 import MonthSummary from '@/components/MonthSummary.vue'
 import ViewToggle from '@/components/ViewToggle.vue'
@@ -23,20 +26,18 @@ const router = useRouter()
 
 const month = computed({
   get: (prev?: string): string => {
-    if (prev && route.name !== 'attendance') {
+    if (prev && route.name !== 'month') {
       return prev
     }
     const m = routeParam(route, 'month')
     return isMonthKey(m) ? m : monthOf(today())
   },
-  set: (m: string) => router.push({ name: 'attendance', params: { month: m } }),
+  set: (m: string) => router.push({ name: 'month', params: { month: m } }),
 })
 
 const { data, error, loading, run } = useRequest(() => getAttendance(month.value))
 watch(month, run, { immediate: true })
 
-const changes = ref(new Map<string, MarkChange>())
-watch(data, () => (changes.value = new Map()))
 
 const filled = computed(() => !!data.value?.days.some((d) => !d.school))
 
@@ -46,24 +47,11 @@ const meals = computed(
 
 const saved = (date: string, childId: number): Status | null =>
   data.value?.children.find((c) => c.child_id === childId)?.marks[date] ?? null
-
-const status = (date: string, childId: number): Status | null => {
-  const change = changes.value.get(`${date}:${childId}`)
-  return change ? change.status : saved(date, childId)
-}
-
-function toggle(date: string, childId: number) {
-  const current = status(date, childId)
-  const next = current === null ? 'present' : current === 'present' ? 'absent' : null
-  const key = `${date}:${childId}`
-  if (next === saved(date, childId)) {
-    changes.value.delete(key)
-  } else {
-    changes.value.set(key, { date, child_id: childId, status: next })
-  }
-}
+const { changes, status, toggle, reset } = useMarks(saved)
+watch(data, reset)
 
 const saving = ref(false)
+const messageOpen = ref(false)
 
 async function save() {
   saving.value = true
@@ -85,10 +73,13 @@ onBeforeRouteLeave(confirmLeave)
 
 <template>
   <main class="page attendance">
-    <div class="page-head">
-      <h1>Отметки</h1>
+    <div class="page-head head">
+      <h1>Месяц</h1>
       <MonthSwitcher v-model="month" />
-      <ViewToggle />
+      <div class="tools">
+        <UiButton v-if="data?.message" :disabled="loading" @click="messageOpen = true">Сообщение месяца</UiButton>
+        <ViewToggle />
+      </div>
     </div>
 
     <UiEmpty v-if="error" title="Не удалось загрузить" :text="error.message">
@@ -112,10 +103,10 @@ onBeforeRouteLeave(confirmLeave)
       />
       <div class="toolbar">
         <p v-if="viewMode === 'calendar'" class="muted hint">
-          Нажмите на день: обедает (зелёный) → не обедает (красный) → без отметки. Бледные дни — неучебные. Сумма — по сохранённым отметкам.
+          Нажмите на день: обедает (зелёный) → не обедает (красный) → без отметки. Жёлтый «?» — родитель ещё не отметился, при закрытии отметки станет «обедает». Бледные дни — неучебные. Сумма — по сохранённым отметкам.
         </p>
         <p v-else class="muted hint">
-          Нажмите на ячейку: ✓ обедает → ✕ не обедает → серая — без отметки. Точка под датой — в группе было сообщение (синяя — отметка ещё идёт). Бледные даты — неучебные дни. «К оплате» — по сохранённым отметкам.
+          Нажмите на ячейку: ✓ обедает → ✕ не обедает → серая — без отметки. Жёлтый «?» — родитель ещё не отметился, при закрытии отметки станет «обедает». Точка под датой — в группе было сообщение (синяя — отметка ещё идёт). Бледные даты — неучебные дни. «К оплате» — по сохранённым отметкам.
         </p>
         <UiButton variant="primary" :disabled="!changes.size" :loading="saving" @click="save">Сохранить</UiButton>
       </div>
@@ -128,12 +119,33 @@ onBeforeRouteLeave(confirmLeave)
       />
       <AttendanceTable v-else :days="data.days" :rows="data.children" :status="status" @toggle="toggle" />
     </template>
+    <UiModal v-model:open="messageOpen" title="Сообщение месяца">
+      <MessagePreview v-if="data?.message" :message="data.message" :sent="data.sent" :dirty="changes.size > 0" />
+    </UiModal>
   </main>
 </template>
 
 <style scoped>
 .attendance {
   max-width: none;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+@media (min-width: 720px) {
+  .head {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .head .tools {
+    justify-self: end;
+  }
 }
 
 .center {

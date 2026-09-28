@@ -3,7 +3,12 @@ import { onMounted, reactive, useId, useTemplateRef } from 'vue'
 import { weekdaysShort } from '@/utils/format'
 import type { ClubGroup } from './clubs'
 
-const { group, names, submitLabel } = defineProps<{ group: ClubGroup; names: string[]; submitLabel: string }>()
+const {
+  group,
+  names,
+  submitLabel,
+  withDays = true,
+} = defineProps<{ group: ClubGroup; names: string[]; submitLabel: string; withDays?: boolean }>()
 const emit = defineEmits<{ submit: [group: ClubGroup]; cancel: [] }>()
 
 const form = reactive({ name: group.name, weekdays: [...group.weekdays], start: group.start })
@@ -16,11 +21,13 @@ const toggleDay = (day: number) => {
   form.weekdays = form.weekdays.includes(day) ? form.weekdays.filter((d) => d !== day) : [...form.weekdays, day]
 }
 
+const ready = () => !!form.name.trim() && !!form.start && (!withDays || !!form.weekdays.length)
+
 function submit() {
-  const name = form.name.trim()
-  if (!name || !form.start || !form.weekdays.length) {
+  if (!ready()) {
     return
   }
+  const name = form.name.trim()
   emit('submit', { name, start: form.start, weekdays: [...form.weekdays].sort((a, b) => a - b) })
 }
 </script>
@@ -39,7 +46,7 @@ function submit() {
     <datalist :id="listId">
       <option v-for="n in names" :key="n" :value="n" />
     </datalist>
-    <span class="days" role="group" aria-label="Дни недели">
+    <span v-if="withDays" class="days" role="group" aria-label="Дни недели">
       <button
         v-for="(d, i) in weekdaysShort"
         :key="d"
@@ -52,7 +59,7 @@ function submit() {
       </button>
     </span>
     <input v-model="form.start" type="time" class="field" aria-label="Время начала" required />
-    <button type="submit" class="btn primary" :disabled="!form.name.trim() || !form.start || !form.weekdays.length">
+    <button type="submit" class="btn primary" :disabled="!ready()">
       {{ submitLabel }}
     </button>
     <button type="button" class="btn" aria-label="Отмена" @click="emit('cancel')">×</button>

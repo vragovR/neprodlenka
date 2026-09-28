@@ -3,6 +3,7 @@ package bot_test
 import (
 	"database/sql"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -91,6 +92,26 @@ func getPost(t *testing.T, a *apptest.App, date string) (post, bool) {
 	return p, true
 }
 
+var allPending = map[int]mark{1: {"pending", 0}, 2: {"pending", 0}}
+
+func dayClubs(t *testing.T, a *apptest.App, date string) []string {
+	t.Helper()
+	rows, err := a.DB.Query(`SELECT child_id || ' ' || start || ' ' || name FROM day_clubs WHERE date = ? ORDER BY 1`, date)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var res []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		res = append(res, s)
+	}
+	return res
+}
+
 func equal(a, b map[int]mark) bool {
 	if len(a) != len(b) {
 		return false
@@ -132,6 +153,26 @@ func TestTickPublish(t *testing.T) {
 	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM report_months WHERE month = '2026-09'`).Scan(&months); err != nil || months != 1 {
 		t.Errorf("report months = %d (%v), want 1", months, err)
 	}
+	if got := marks(t, a, "2026-09-26"); !equal(got, allPending) {
+		t.Errorf("marks = %v, want %v", got, allPending)
+	}
+}
+
+func TestTickPublishCopiesDayClubs(t *testing.T) {
+	t.Parallel()
+	a, b := setup(t)
+	a.Exec(t, `INSERT INTO child_clubs (child_id, weekday, start, name) VALUES
+		(1, 6, '10:00', 'Шахматы'),
+		(1, 1, '15:00', 'Шахматы'),
+		(2, 6, '12:30', 'Танцы'),
+		(3, 6, '11:00', 'Футбол')`)
+
+	tick(t, a, b, at(26, 7, 0))
+
+	want := []string{"1 10:00 Шахматы", "2 12:30 Танцы"}
+	if got := dayClubs(t, a, "2026-09-26"); !slices.Equal(got, want) {
+		t.Errorf("day clubs = %v, want %v", got, want)
+	}
 }
 
 func TestTickNoPublish(t *testing.T) {
@@ -172,6 +213,8 @@ func TestTickClose(t *testing.T) {
 	tick(t, a, b, at(26, 7, 0))
 	press(t, b, "c1", 101, "absent")
 	a.MAX.NextEdit(t)
+
+	a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES ('2026-09-26', 3, 'pending', 0)`)
 
 	tick(t, a, b, at(26, 8, 59))
 	if p, _ := getPost(t, a, "2026-09-26"); p.status != "open" {
@@ -238,6 +281,7 @@ func TestTickSendError(t *testing.T) {
 	t.Parallel()
 	a, b := setup(t)
 	a.MAX.SetSendError(errors.New("max unavailable"))
+	a.Exec(t, `INSERT INTO child_clubs (child_id, weekday, start, name) VALUES (1, 6, '10:00', 'Шахматы')`)
 
 	a.SetNow(at(26, 7, 0))
 	if err := b.Tick(t.Context()); err == nil {
@@ -245,6 +289,12 @@ func TestTickSendError(t *testing.T) {
 	}
 	if _, ok := getPost(t, a, "2026-09-26"); ok {
 		t.Fatal("post left after send error, want deleted")
+	}
+	if got := marks(t, a, "2026-09-26"); len(got) != 0 {
+		t.Errorf("marks = %v after send error, want none", got)
+	}
+	if got := dayClubs(t, a, "2026-09-26"); len(got) != 0 {
+		t.Errorf("day clubs = %v after send error, want none", got)
 	}
 
 	a.MAX.SetSendError(nil)
@@ -255,6 +305,9 @@ func TestTickSendError(t *testing.T) {
 	}
 	if p, _ := getPost(t, a, "2026-09-26"); p != (post{"open", "m1"}) {
 		t.Errorf("post = %v, want open m1", p)
+	}
+	if got := dayClubs(t, a, "2026-09-26"); len(got) != 1 {
+		t.Errorf("day clubs = %v after retry, want 1", got)
 	}
 }
 
@@ -310,8 +363,8 @@ func TestPressAgainUnmarks(t *testing.T) {
 	press(t, b, "c1", 101, "absent")
 	press(t, b, "c2", 102, "absent")
 
-	if got := marks(t, a, "2026-09-26"); len(got) != 0 {
-		t.Errorf("marks = %v, want none", got)
+	if got := marks(t, a, "2026-09-26"); !equal(got, allPending) {
+		t.Errorf("marks = %v, want %v", got, allPending)
 	}
 	if got := a.MAX.Answered(); len(got) != 2 || got[1].Notification != "Отметка снята: обедает" {
 		t.Errorf("answered = %v", got)
@@ -339,8 +392,8 @@ func TestPressMarksAllChildrenOfParent(t *testing.T) {
 
 	press(t, b, "c4", 101, "absent")
 
-	if got := marks(t, a, "2026-09-26"); len(got) != 0 {
-		t.Errorf("after unmark: marks = %v, want none", got)
+	if got := marks(t, a, "2026-09-26"); !equal(got, allPending) {
+		t.Errorf("after unmark: marks = %v, want %v", got, allPending)
 	}
 }
 
@@ -388,8 +441,8 @@ func TestPressIgnored(t *testing.T) {
 
 			press(t, b, "c1", tt.userID, tt.payload)
 
-			if got := marks(t, a, "2026-09-26"); len(got) != 0 {
-				t.Errorf("marks = %v, want none", got)
+			if got := marks(t, a, "2026-09-26"); !equal(got, allPending) {
+				t.Errorf("marks = %v, want %v", got, allPending)
 			}
 			if got := a.MAX.Answered(); len(got) != 1 || got[0].Notification == "" {
 				t.Errorf("answered = %v, want 1 callback", got)

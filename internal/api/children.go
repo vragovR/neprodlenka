@@ -195,25 +195,34 @@ func (h *handler) updateChild(w http.ResponseWriter, r *http.Request) {
 func normalizeClubs(in []clubJSON) ([]store.Club, error) {
 	clubs := []store.Club{}
 	for _, c := range in {
-		name := strings.TrimSpace(c.Name)
-		switch {
-		case name == "":
-			return nil, errors.New("Укажите название кружка")
-		case utf8.RuneCountInString(name) > maxClubNameLen:
-			return nil, errors.New("Слишком длинное название кружка")
-		case c.Weekday < 1 || c.Weekday > 7:
+		if c.Weekday < 1 || c.Weekday > 7 {
 			return nil, errors.New("Укажите день недели кружка")
 		}
-		start, err := time.Parse(clubStartLayout, strings.TrimSpace(c.Start))
+		start, name, err := normalizeClub(c.Start, c.Name)
 		if err != nil {
-			return nil, errors.New("Укажите время начала кружка в формате ЧЧ:ММ")
+			return nil, err
 		}
-		clubs = append(clubs, store.Club{Weekday: c.Weekday, Start: start.Format(clubStartLayout), Name: name})
+		clubs = append(clubs, store.Club{Weekday: c.Weekday, Start: start, Name: name})
 	}
 	slices.SortFunc(clubs, func(a, b store.Club) int {
 		return cmp.Or(cmp.Compare(a.Weekday, b.Weekday), strings.Compare(a.Start, b.Start), strings.Compare(a.Name, b.Name))
 	})
 	return slices.Compact(clubs), nil
+}
+
+func normalizeClub(start, name string) (string, string, error) {
+	name = strings.TrimSpace(name)
+	switch {
+	case name == "":
+		return "", "", errors.New("Укажите название кружка")
+	case utf8.RuneCountInString(name) > maxClubNameLen:
+		return "", "", errors.New("Слишком длинное название кружка")
+	}
+	t, err := time.Parse(clubStartLayout, strings.TrimSpace(start))
+	if err != nil {
+		return "", "", errors.New("Укажите время начала кружка в формате ЧЧ:ММ")
+	}
+	return t.Format(clubStartLayout), name, nil
 }
 
 func validateChild(c store.Child) error {

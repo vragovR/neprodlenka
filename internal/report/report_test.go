@@ -16,6 +16,8 @@ func row(r Row) string {
 			cells = append(cells, "-")
 		case *m == "present":
 			cells = append(cells, "+")
+		case *m == "pending":
+			cells = append(cells, "?")
 		default:
 			cells = append(cells, "x")
 		}
@@ -43,6 +45,7 @@ func TestBuild(t *testing.T) {
 		{ChildID: 1, Date: "2026-02-02", Status: store.Present, Price: 14000},
 		{ChildID: 1, Date: "2026-02-03", Status: store.Absent},
 		{ChildID: 2, Date: "2026-02-02", Status: store.Absent},
+		{ChildID: 2, Date: "2026-02-03", Status: store.Pending},
 		{ChildID: 3, Date: "2026-02-01", Status: store.Present, Price: 13000},
 		{ChildID: 1, Date: "2026-02-10", Status: store.Present, Price: 13000},
 	}
@@ -66,7 +69,7 @@ func TestBuild(t *testing.T) {
 	for _, c := range r.Children {
 		rows = append(rows, row(c))
 	}
-	if got, want := strings.Join(rows, "; "), "Иванов ++x------+------------------; Козлова -x--------------------------; Сидоров +---------------------------"; got != want {
+	if got, want := strings.Join(rows, "; "), "Иванов ++x------+------------------; Козлова -x?-------------------------; Сидоров +---------------------------"; got != want {
 		t.Errorf("rows = %s, want %s", got, want)
 	}
 

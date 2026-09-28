@@ -96,10 +96,22 @@ func (h *handler) getAttendance(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	var msgJSON *messageJSON
+	msg, rm, ok, err := h.builder.BuildMonth(r.Context(), month)
+	if err != nil {
+		h.internalError(w, err)
+		return
+	}
+	if ok {
+		msgJSON = toMessageJSON(msg)
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"month":    month.Format("2006-01"),
 		"days":     days,
 		"children": rows,
+		"message":  msgJSON,
+		"sent":     rm.MessageID != "",
 	})
 }
 

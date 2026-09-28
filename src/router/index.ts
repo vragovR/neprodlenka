@@ -19,9 +19,18 @@ const router = createRouter({
           component: () => import('@/features/calendar/CalendarView.vue'),
         },
         {
-          path: 'attendance/:month?',
-          name: 'attendance',
+          path: 'day/:date?',
+          name: 'day',
+          component: () => import('@/features/day/DayView.vue'),
+        },
+        {
+          path: 'month/:month?',
+          name: 'month',
           component: () => import('@/features/attendance/AttendanceView.vue'),
+        },
+        {
+          path: 'attendance/:month?',
+          redirect: (to) => ({ name: 'month', params: to.params }),
         },
         {
           path: 'debug',

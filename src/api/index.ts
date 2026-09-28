@@ -1,5 +1,17 @@
 import { request } from './client'
-import type { Attendance, Child, ChildInput, ChildPatch, ChildReport, ChildrenResponse, MarkChange, Month, Report } from './types'
+import type {
+  Attendance,
+  Child,
+  ChildInput,
+  ChildPatch,
+  ChildReport,
+  ChildrenResponse,
+  Day,
+  DayClubChange,
+  MarkChange,
+  Month,
+  Report,
+} from './types'
 
 export const login = (login: string, password: string) =>
   request<{ login: string }>('POST', '/login', { login, password })
@@ -21,6 +33,11 @@ export const getAttendance = (month: string) => request<Attendance>('GET', `/att
 
 export const putAttendance = (month: string, marks: MarkChange[]) =>
   request<void>('PUT', `/attendance/${month}`, { marks })
+
+export const getDay = (date: string) => request<Day>('GET', `/days/${date}`)
+
+export const putDayClubs = (date: string, clubs: DayClubChange[]) =>
+  request<void>('PUT', `/days/${date}/clubs`, { clubs })
 
 export const getReport = (uid: string) => request<Report>('GET', `/reports/${encodeURIComponent(uid)}`)
 

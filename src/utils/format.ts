@@ -55,6 +55,15 @@ export function addMonths(month: string, n: number): string {
   return monthOf(toISODate(d))
 }
 
+export function addDays(date: string, n: number): string {
+  const d = parseISODate(date)
+  d.setDate(d.getDate() + n)
+  return toISODate(d)
+}
+
+export const dayTitle = (date: string) =>
+  new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' }).format(parseISODate(date))
+
 export function monthTitle(month: string): string {
   const d = parseISODate(`${month}-01`)
   const name = monthNames[d.getMonth()] ?? ''

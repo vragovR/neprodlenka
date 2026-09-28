@@ -80,17 +80,14 @@ func (r *Redrawer) run(ctx context.Context) {
 			}
 		}
 
-		delay := editInterval
 		if err := r.redraw(ctx, date); err != nil {
 			r.log.Error("redraw", zap.Time("date", date), zap.Error(err))
-			r.Redraw(date)
-			delay = retryDelay
 		}
 
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(delay):
+		case <-time.After(editInterval):
 		}
 	}
 }

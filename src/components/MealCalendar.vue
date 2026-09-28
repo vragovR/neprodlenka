@@ -13,7 +13,7 @@ const emit = defineEmits<{ toggle: [date: string] }>()
 
 const now = today()
 const offset = computed(() => (days[0] ? weekday(days[0].date) : 0))
-const titles: Record<Status, string> = { present: 'Обедает', absent: 'Не обедает' }
+const titles: Record<Status, string> = { pending: 'Не отметился', present: 'Обедает', absent: 'Не обедает' }
 
 function dayTitle(d: ReportDay) {
   const s = status(d.date)
@@ -105,6 +105,12 @@ function dayTitle(d: ReportDay) {
 .absent {
   color: var(--danger);
   background: var(--danger-soft);
+  font-weight: 700;
+}
+
+.pending {
+  color: var(--warning);
+  background: var(--warning-soft);
   font-weight: 700;
 }
 

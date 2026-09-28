@@ -11,6 +11,7 @@ import (
 type Status string
 
 const (
+	Pending Status = "pending"
 	Present Status = "present"
 	Absent  Status = "absent"
 )
@@ -99,20 +100,40 @@ func (s *Store) MonthPosts(ctx context.Context, month time.Time) (map[string]Pos
 }
 
 func (s *Store) DeletePost(ctx context.Context, date time.Time) error {
-	_, err := s.db.ExecContext(ctx,
-		`DELETE FROM daily_posts WHERE date = ? AND message_id IS NULL`,
-		date.Format(time.DateOnly),
-	)
-	if err != nil {
-		return fmt.Errorf("delete post: %w", err)
-	}
-	return nil
+	return s.forgetPost(ctx, date, `DELETE FROM daily_posts WHERE date = ? AND message_id IS NULL`)
 }
 
 func (s *Store) RemovePost(ctx context.Context, date time.Time) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM daily_posts WHERE date = ?`, date.Format(time.DateOnly))
+	return s.forgetPost(ctx, date, `DELETE FROM daily_posts WHERE date = ?`)
+}
+
+func (s *Store) forgetPost(ctx context.Context, date time.Time, query string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("remove post: %w", err)
+		return fmt.Errorf("delete post: %w", err)
+	}
+	defer tx.Rollback()
+
+	d := date.Format(time.DateOnly)
+	res, err := tx.ExecContext(ctx, query, d)
+	if err != nil {
+		return fmt.Errorf("delete post: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete post: %w", err)
+	}
+	if n == 0 {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM attendance WHERE date = ? AND status = 'pending'`, d); err != nil {
+		return fmt.Errorf("delete post: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM day_clubs WHERE date = ?`, d); err != nil {
+		return fmt.Errorf("delete post: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("delete post: %w", err)
 	}
 	return nil
 }
@@ -126,9 +147,16 @@ func (s *Store) ClosePost(ctx context.Context, date time.Time) error {
 
 	d := date.Format(time.DateOnly)
 	_, err = tx.ExecContext(ctx, `
+		DELETE FROM attendance WHERE date = ? AND status = 'pending'
+		AND child_id IN (SELECT id FROM children WHERE active = 0)`, d)
+	if err != nil {
+		return fmt.Errorf("close post: %w", err)
+	}
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO attendance (date, child_id, status, price)
 		SELECT ?, id, 'present', price FROM children WHERE active = 1
-		ON CONFLICT (date, child_id) DO NOTHING`, d)
+		ON CONFLICT (date, child_id) DO UPDATE SET status = excluded.status, price = excluded.price
+		WHERE attendance.status = 'pending'`, d)
 	if err != nil {
 		return fmt.Errorf("close post: %w", err)
 	}
@@ -168,10 +196,14 @@ func (s *Store) IsLastSchoolDay(ctx context.Context, date time.Time) (bool, erro
 }
 
 func (s *Store) CreatePost(ctx context.Context, date time.Time) (bool, error) {
-	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO daily_posts (date) VALUES (?) ON CONFLICT DO NOTHING`,
-		date.Format(time.DateOnly),
-	)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("create post: %w", err)
+	}
+	defer tx.Rollback()
+
+	d := date.Format(time.DateOnly)
+	res, err := tx.ExecContext(ctx, `INSERT INTO daily_posts (date) VALUES (?) ON CONFLICT DO NOTHING`, d)
 	if err != nil {
 		return false, fmt.Errorf("create post: %w", err)
 	}
@@ -179,7 +211,32 @@ func (s *Store) CreatePost(ctx context.Context, date time.Time) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("create post: %w", err)
 	}
-	return n == 1, nil
+	if n == 0 {
+		return false, nil
+	}
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO attendance (date, child_id, status, price)
+		SELECT ?, id, 'pending', 0 FROM children WHERE active = 1
+		ON CONFLICT (date, child_id) DO NOTHING`, d)
+	if err != nil {
+		return false, fmt.Errorf("create post: %w", err)
+	}
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO day_clubs (date, child_id, start, name)
+		SELECT ?1, cc.child_id, cc.start, cc.name
+		FROM child_clubs cc JOIN children c ON c.id = cc.child_id
+		WHERE c.active = 1 AND cc.weekday = ?2`, d, Weekday(date))
+	if err != nil {
+		return false, fmt.Errorf("create post: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("create post: %w", err)
+	}
+	return true, nil
+}
+
+func Weekday(date time.Time) int {
+	return (int(date.Weekday())+6)%7 + 1
 }
 
 func (s *Store) SetPostMessageID(ctx context.Context, date time.Time, messageID string) error {
@@ -228,7 +285,7 @@ func (s *Store) ToggleAbsent(ctx context.Context, messageID string, userID int64
 		ON CONFLICT (date, child_id) DO UPDATE SET status = excluded.status, price = excluded.price`
 	if absent == total {
 		query = `
-			DELETE FROM attendance
+			UPDATE attendance SET status = 'pending', price = 0
 			WHERE date = ?1 AND child_id IN (
 				SELECT c.id FROM child_parents cp JOIN children c ON c.id = cp.child_id
 				WHERE cp.user_id = ?2 AND c.active = 1)`

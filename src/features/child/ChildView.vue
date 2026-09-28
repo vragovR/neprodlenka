@@ -34,6 +34,7 @@ const status = (date: string) => data.value?.child.marks[dayOfMonth(date) - 1] ?
 const legend = [
   { label: 'обедал', swatch: 'present' },
   { label: 'не обедал', swatch: 'absent' },
+  { label: 'ещё не отмечен', swatch: 'pending' },
   { label: 'нет отметки', swatch: 'none' },
   { label: 'школа не работает', swatch: 'off' },
 ]
@@ -188,6 +189,11 @@ const legend = [
 .swatch.absent {
   background: var(--danger-soft);
   border: 1px solid var(--danger);
+}
+
+.swatch.pending {
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
 }
 
 .swatch.none {

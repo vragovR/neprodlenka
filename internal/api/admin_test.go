@@ -57,6 +57,8 @@ func TestAdminRequiresLogin(t *testing.T) {
 		{"PUT", "/api/months/2026-09", `{}`},
 		{"GET", "/api/attendance/2026-09", ""},
 		{"PUT", "/api/attendance/2026-09", `{}`},
+		{"GET", "/api/days/2026-09-25", ""},
+		{"PUT", "/api/days/2026-09-25/clubs", `{}`},
 		{"POST", "/api/debug/day/2026-09-25", `{}`},
 		{"POST", "/api/debug/month/2026-09", `{}`},
 		{"POST", "/api/debug/close/2026-09-25", `{}`},
@@ -247,6 +249,10 @@ type attendanceRow struct {
 type attendance struct {
 	Days     []attendanceDay `json:"days"`
 	Children []attendanceRow `json:"children"`
+	Message  *struct {
+		Text string `json:"text"`
+	} `json:"message"`
+	Sent bool `json:"sent"`
 }
 
 func attendanceEnv(t *testing.T) (*env, *http.Cookie) {
@@ -309,6 +315,9 @@ func TestAttendanceGet(t *testing.T) {
 
 	a := getAttendance(t, e, c)
 
+	if a.Message == nil || !strings.HasPrefix(a.Message.Text, "Питание за сентябрь 2026.") || a.Sent {
+		t.Errorf("message = %+v, sent = %v; want unsent summary", a.Message, a.Sent)
+	}
 	if len(a.Days) != 30 || a.Days[0].Date != "2026-09-01" || !a.Days[3].School || a.Days[4].School || a.Days[5].School || !a.Days[6].School {
 		t.Fatalf("days = %+v", a.Days)
 	}
@@ -391,6 +400,9 @@ func TestAttendanceRedrawsMonthSummary(t *testing.T) {
 	edit := e.a.MAX.NextEdit(t)
 	if edit.MessageID != "m9" || !strings.Contains(edit.Message.Text, "• <b>Козлова Аня</b>: 1 день × 150\u00a0₽ = 150\u00a0₽") {
 		t.Errorf("edit %s:\n%s", edit.MessageID, edit.Message.Text)
+	}
+	if a := getAttendance(t, e, c); a.Message == nil || a.Message.Text != edit.Message.Text || !a.Sent {
+		t.Errorf("message = %+v, want %q", a.Message, edit.Message.Text)
 	}
 }
 
@@ -543,7 +555,9 @@ func TestDebugDelete(t *testing.T) {
 	}
 
 	e.a.Exec(t, `INSERT INTO daily_posts (date, status, message_id) VALUES ('2026-09-24', 'closed', 'm7')`)
-	e.a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES ('2026-09-24', 2, 'absent', 0)`)
+	e.a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES
+		('2026-09-24', 2, 'absent', 0), ('2026-09-24', 1, 'pending', 0)`)
+	e.a.Exec(t, `INSERT INTO day_clubs (date, child_id, start, name) VALUES ('2026-09-24', 1, '10:00', 'Шахматы')`)
 	e.a.Exec(t, `UPDATE report_months SET message_id = 'm8' WHERE month = '2026-09'`)
 
 	for _, path := range []string{"/api/debug/day/2026-09-24", "/api/debug/month/2026-09"} {
@@ -555,14 +569,15 @@ func TestDebugDelete(t *testing.T) {
 	if got := e.a.MAX.Deleted(); len(got) != 2 || got[0] != "m7" || got[1] != "m8" {
 		t.Errorf("deleted = %v, want [m7 m8]", got)
 	}
-	var posts, marks int
+	var posts, marks, clubs int
 	var summary sql.NullString
 	if err := e.a.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM daily_posts), (SELECT COUNT(*) FROM attendance),
-		(SELECT message_id FROM report_months WHERE month = '2026-09')`).Scan(&posts, &marks, &summary); err != nil {
+		(SELECT COUNT(*) FROM day_clubs), (SELECT message_id FROM report_months WHERE month = '2026-09')`,
+	).Scan(&posts, &marks, &clubs, &summary); err != nil {
 		t.Fatal(err)
 	}
-	if posts != 0 || marks != 1 || summary.Valid {
-		t.Errorf("posts = %d, marks = %d, summary = %v; want 0, 1, NULL", posts, marks, summary)
+	if posts != 0 || marks != 1 || clubs != 0 || summary.Valid {
+		t.Errorf("posts = %d, marks = %d, clubs = %d, summary = %v; want 0, 1, 0, NULL", posts, marks, clubs, summary)
 	}
 
 	if w := e.do(t, "POST", "/api/debug/day/2026-09-24", `{}`, c); w.Code != http.StatusNoContent {

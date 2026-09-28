@@ -1,4 +1,4 @@
-export type Status = 'present' | 'absent'
+export type Status = 'pending' | 'present' | 'absent'
 
 export interface PersonName {
   last_name: string
@@ -60,6 +60,38 @@ export interface Attendance {
   month: string
   days: AttendanceDay[]
   children: AttendanceRow[]
+  message: BotMessage | null
+  sent: boolean
+}
+
+export interface DayClub {
+  start: string
+  name: string
+}
+
+export interface DayRow extends PersonName {
+  child_id: number
+  active: boolean
+  status: Status | null
+  clubs: DayClub[]
+}
+
+export interface BotMessage {
+  text: string
+  buttons: string[]
+}
+
+export interface Day {
+  date: string
+  school: boolean
+  published: boolean
+  closed: boolean
+  children: DayRow[]
+  message: BotMessage | null
+}
+
+export interface DayClubChange extends DayClub {
+  child_id: number
 }
 
 export interface MarkChange {

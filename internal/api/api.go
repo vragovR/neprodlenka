@@ -12,6 +12,7 @@ import (
 	"neprodlenka/internal/bot"
 	"neprodlenka/internal/clock"
 	"neprodlenka/internal/config"
+	"neprodlenka/internal/message"
 	"neprodlenka/internal/store"
 )
 
@@ -20,6 +21,7 @@ type handler struct {
 	store    *store.Store
 	redrawer *bot.Redrawer
 	bot      *bot.Bot
+	builder  *message.Builder
 	max      bot.MAX
 	now      clock.Clock
 	baseURL  string
@@ -27,8 +29,8 @@ type handler struct {
 	log      *zap.Logger
 }
 
-func NewHandler(a *auth.Service, s *store.Store, r *bot.Redrawer, b *bot.Bot, m bot.MAX, wh *bot.Webhook, now clock.Clock, cfg config.Config, log *zap.Logger) http.Handler {
-	h := &handler{auth: a, store: s, redrawer: r, bot: b, max: m, now: now, baseURL: cfg.BaseURL, secure: strings.HasPrefix(cfg.BaseURL, "https://"), log: log}
+func NewHandler(a *auth.Service, s *store.Store, r *bot.Redrawer, b *bot.Bot, mb *message.Builder, m bot.MAX, wh *bot.Webhook, now clock.Clock, cfg config.Config, log *zap.Logger) http.Handler {
+	h := &handler{auth: a, store: s, redrawer: r, bot: b, builder: mb, max: m, now: now, baseURL: cfg.BaseURL, secure: strings.HasPrefix(cfg.BaseURL, "https://"), log: log}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/login", h.login)
@@ -40,6 +42,8 @@ func NewHandler(a *auth.Service, s *store.Store, r *bot.Redrawer, b *bot.Bot, m 
 	mux.Handle("PUT /api/months/{month}", h.requireAdmin(h.putMonth))
 	mux.Handle("GET /api/attendance/{month}", h.requireAdmin(h.getAttendance))
 	mux.Handle("PUT /api/attendance/{month}", h.requireAdmin(h.putAttendance))
+	mux.Handle("GET /api/days/{date}", h.requireAdmin(h.getDay))
+	mux.Handle("PUT /api/days/{date}/clubs", h.requireAdmin(h.putDayClubs))
 	mux.Handle("POST /api/debug/day/{date}", h.requireAdmin(h.debugDay))
 	mux.Handle("POST /api/debug/month/{month}", h.requireAdmin(h.debugMonth))
 	mux.Handle("DELETE /api/debug/day/{date}", h.requireAdmin(h.debugDeleteDay))

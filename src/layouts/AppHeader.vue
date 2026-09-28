@@ -11,7 +11,8 @@ import UiButton from '@/components/ui/UiButton.vue'
 
 const tabs = [
   { name: 'children', label: 'Дети' },
-  { name: 'attendance', label: 'Отметки' },
+  { name: 'day', label: 'День' },
+  { name: 'month', label: 'Месяц' },
   { name: 'calendar', label: 'Календарь' },
   ...(debugEnabled ? [{ name: 'debug', label: 'Отладка' }] : []),
 ]

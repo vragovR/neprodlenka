@@ -26,7 +26,7 @@ func New(lc fx.Lifecycle, cfg config.Config, log *zap.Logger) (*sql.DB, error) {
 	}
 
 	dsn := "file:" + cfg.DBPath +
-		"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+		"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
