@@ -6,4 +6,5 @@
 !package-lock.json
 !tsconfig*.json
 !vite.config.ts
+!e2e
 !nginx
