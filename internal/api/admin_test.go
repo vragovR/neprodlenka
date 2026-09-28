@@ -58,7 +58,7 @@ func TestAdminRequiresLogin(t *testing.T) {
 		{"GET", "/api/attendance/2026-09", ""},
 		{"PUT", "/api/attendance/2026-09", `{}`},
 		{"GET", "/api/days/2026-09-25", ""},
-		{"PUT", "/api/days/2026-09-25/clubs", `{}`},
+		{"PUT", "/api/days/2026-09-25/children/1/clubs", `{}`},
 		{"POST", "/api/debug/day/2026-09-25", `{}`},
 		{"POST", "/api/debug/month/2026-09", `{}`},
 		{"POST", "/api/debug/close/2026-09-25", `{}`},

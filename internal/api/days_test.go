@@ -64,7 +64,7 @@ func TestDay(t *testing.T) {
 	if d.Message == nil || !strings.Contains(d.Message.Text, "Доброе утро!") || !strings.Contains(d.Message.Text, "Козлова Аня") {
 		t.Errorf("message before publish: %+v", d.Message)
 	}
-	if w := e.do(t, "PUT", "/api/days/2026-09-26/clubs", `{"clubs":[]}`, c); w.Code != http.StatusBadRequest {
+	if w := e.do(t, "PUT", "/api/days/2026-09-26/children/1/clubs", `{"clubs":[]}`, c); w.Code != http.StatusBadRequest {
 		t.Errorf("put before publish: status = %d, want 400", w.Code)
 	}
 
@@ -85,12 +85,14 @@ func TestDay(t *testing.T) {
 		t.Errorf("message = %+v, want sent %+v", d.Message, sent)
 	}
 
-	w := e.do(t, "PUT", "/api/days/2026-09-26/clubs", `{"clubs":[
-		{"child_id":2,"start":"12:30","name":" Танцы "},
-		{"child_id":2,"start":"12:30","name":"Танцы"},
-		{"child_id":3,"start":"11:00","name":"Футбол"}]}`, c)
-	if w.Code != http.StatusNoContent {
-		t.Fatalf("put: status = %d, body %s", w.Code, w.Body)
+	for _, req := range []struct{ path, body string }{
+		{"/api/days/2026-09-26/children/1/clubs", `{"clubs":[]}`},
+		{"/api/days/2026-09-26/children/2/clubs", `{"clubs":[{"start":"12:30","name":" Танцы "},{"start":"12:30","name":"Танцы"}]}`},
+		{"/api/days/2026-09-26/children/3/clubs", `{"clubs":[{"start":"11:00","name":"Футбол"}]}`},
+	} {
+		if w := e.do(t, "PUT", req.path, req.body, c); w.Code != http.StatusNoContent {
+			t.Fatalf("put %s: status = %d, body %s", req.path, w.Code, w.Body)
+		}
 	}
 	d = getDay(t, e, c, "2026-09-26")
 	if !slices.Equal(dayIDs(d), []int64{1, 2, 3}) {
@@ -114,12 +116,16 @@ func TestDayErrors(t *testing.T) {
 
 	for _, tt := range []struct{ name, method, path, body string }{
 		{"bad date", "GET", "/api/days/25.09.2026", ""},
-		{"blank name", "PUT", "/api/days/2026-09-25/clubs", `{"clubs":[{"child_id":1,"start":"10:00","name":" "}]}`},
-		{"bad start", "PUT", "/api/days/2026-09-25/clubs", `{"clubs":[{"child_id":1,"start":"25:00","name":"Шахматы"}]}`},
-		{"unknown child", "PUT", "/api/days/2026-09-25/clubs", `{"clubs":[{"child_id":99,"start":"10:00","name":"Шахматы"}]}`},
+		{"blank name", "PUT", "/api/days/2026-09-25/children/1/clubs", `{"clubs":[{"start":"10:00","name":" "}]}`},
+		{"bad start", "PUT", "/api/days/2026-09-25/children/1/clubs", `{"clubs":[{"start":"25:00","name":"Шахматы"}]}`},
 	} {
 		if w := e.do(t, tt.method, tt.path, tt.body, c); w.Code != http.StatusBadRequest {
 			t.Errorf("%s: status = %d, want 400", tt.name, w.Code)
+		}
+	}
+	for _, path := range []string{"/api/days/2026-09-25/children/99/clubs", "/api/days/2026-09-25/children/x/clubs"} {
+		if w := e.do(t, "PUT", path, `{"clubs":[]}`, c); w.Code != http.StatusNotFound {
+			t.Errorf("%s: status = %d, want 404", path, w.Code)
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -144,12 +145,13 @@ func (h *handler) putDayClubs(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	childID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "Ребёнок не найден")
+		return
+	}
 	var req struct {
-		Clubs []struct {
-			ChildID int64  `json:"child_id"`
-			Start   string `json:"start"`
-			Name    string `json:"name"`
-		} `json:"clubs"`
+		Clubs []dayClubJSON `json:"clubs"`
 	}
 	if !readJSON(w, r, &req) {
 		return
@@ -162,10 +164,10 @@ func (h *handler) putDayClubs(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "validation", err.Error())
 			return
 		}
-		clubs = append(clubs, store.DayClub{ChildID: c.ChildID, Start: start, Name: name})
+		clubs = append(clubs, store.DayClub{ChildID: childID, Start: start, Name: name})
 	}
 	slices.SortFunc(clubs, func(a, b store.DayClub) int {
-		return cmp.Or(cmp.Compare(a.ChildID, b.ChildID), strings.Compare(a.Start, b.Start), strings.Compare(a.Name, b.Name))
+		return cmp.Or(strings.Compare(a.Start, b.Start), strings.Compare(a.Name, b.Name))
 	})
 	clubs = slices.Compact(clubs)
 
@@ -179,9 +181,9 @@ func (h *handler) putDayClubs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.store.SetDayClubs(r.Context(), date, clubs)
+	err = h.store.SetDayClubs(r.Context(), date, childID, clubs)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusBadRequest, "validation", "Неизвестный ребёнок")
+		writeError(w, http.StatusNotFound, "not_found", "Ребёнок не найден")
 		return
 	}
 	if err != nil {

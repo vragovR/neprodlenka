@@ -90,10 +90,6 @@ export interface Day {
   message: BotMessage | null
 }
 
-export interface DayClubChange extends DayClub {
-  child_id: number
-}
-
 export interface MarkChange {
   date: string
   child_id: number

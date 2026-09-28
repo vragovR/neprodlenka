@@ -7,7 +7,7 @@ import type {
   ChildReport,
   ChildrenResponse,
   Day,
-  DayClubChange,
+  DayClub,
   MarkChange,
   Month,
   Report,
@@ -36,8 +36,8 @@ export const putAttendance = (month: string, marks: MarkChange[]) =>
 
 export const getDay = (date: string) => request<Day>('GET', `/days/${date}`)
 
-export const putDayClubs = (date: string, clubs: DayClubChange[]) =>
-  request<void>('PUT', `/days/${date}/clubs`, { clubs })
+export const putDayClubs = (date: string, childId: number, clubs: DayClub[]) =>
+  request<void>('PUT', `/days/${date}/children/${childId}/clubs`, { clubs })
 
 export const getReport = (uid: string) => request<Report>('GET', `/reports/${encodeURIComponent(uid)}`)
 

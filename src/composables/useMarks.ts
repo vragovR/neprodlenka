@@ -1,6 +1,9 @@
 import { ref } from 'vue'
 import type { MarkChange, Status } from '@/api/types'
 
+export const nextStatus = (current: Status | null, saved: Status | null): Status | null =>
+  current === 'present' ? 'absent' : current === 'absent' ? (saved === 'pending' ? saved : null) : 'present'
+
 export function useMarks(saved: (date: string, childId: number) => Status | null) {
   const changes = ref(new Map<string, MarkChange>())
 
@@ -11,8 +14,7 @@ export function useMarks(saved: (date: string, childId: number) => Status | null
 
   function toggle(date: string, childId: number) {
     const was = saved(date, childId)
-    const current = status(date, childId)
-    const value = current === 'present' ? 'absent' : current === 'absent' ? (was === 'pending' ? was : null) : 'present'
+    const value = nextStatus(status(date, childId), was)
     const key = `${date}:${childId}`
     if (value === was) {
       changes.value.delete(key)

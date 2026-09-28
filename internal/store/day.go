@@ -36,28 +36,28 @@ func (s *Store) DayClubs(ctx context.Context, date time.Time) ([]DayClub, error)
 	return clubs, nil
 }
 
-func (s *Store) SetDayClubs(ctx context.Context, date time.Time, clubs []DayClub) error {
+func (s *Store) SetDayClubs(ctx context.Context, date time.Time, childID int64, clubs []DayClub) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("set day clubs: %w", err)
 	}
 	defer tx.Rollback()
 
+	var exists bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM children WHERE id = ?)`, childID).Scan(&exists); err != nil {
+		return fmt.Errorf("set day clubs: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("%w: child %d", ErrNotFound, childID)
+	}
 	d := date.Format(time.DateOnly)
-	if _, err := tx.ExecContext(ctx, `DELETE FROM day_clubs WHERE date = ?`, d); err != nil {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM day_clubs WHERE date = ? AND child_id = ?`, d, childID); err != nil {
 		return fmt.Errorf("set day clubs: %w", err)
 	}
 	for _, c := range clubs {
-		var exists bool
-		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM children WHERE id = ?)`, c.ChildID).Scan(&exists); err != nil {
-			return fmt.Errorf("set day clubs: %w", err)
-		}
-		if !exists {
-			return fmt.Errorf("%w: child %d", ErrNotFound, c.ChildID)
-		}
 		_, err := tx.ExecContext(ctx,
 			`INSERT INTO day_clubs (date, child_id, start, name) VALUES (?, ?, ?, ?)`,
-			d, c.ChildID, c.Start, c.Name)
+			d, childID, c.Start, c.Name)
 		if err != nil {
 			return fmt.Errorf("set day clubs: %w", err)
 		}
