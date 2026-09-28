@@ -3,6 +3,7 @@
 install:
 	go mod download
 	npm ci
+	npx playwright install chromium
 
 up:
 	docker compose up --watch
@@ -15,6 +16,8 @@ logs:
 
 test:
 	go test ./cmd/... ./internal/...
+	npm run test:unit -- --run
+	npm run test:e2e
 
 lint:
 	go vet ./cmd/... ./internal/...

@@ -14,3 +14,7 @@
 /bin
 
 /PROD.md
+
+/playwright-report/
+/test-results/
+/playwright/.cache/

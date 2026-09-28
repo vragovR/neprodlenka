@@ -32,6 +32,7 @@
 
 - Бэкенд: Go, SQLite (миграции — goose), Uber fx, клиент MAX Bot API.
 - Фронт: Vue 3, TypeScript, Vite, свой CSS без UI-библиотек.
+- Тесты фронта: Vitest (юнит) и Playwright (e2e).
 - Инфраструктура: Docker Compose, nginx, Caddy (Let's Encrypt), GitHub Actions, ghcr.io.
 
 ## Структура
@@ -41,7 +42,8 @@
 | `cmd/neprodlenka/` | Точка входа: `run` — бот и HTTP-сервер, `admin` — управление администраторами. |
 | `internal/` | Бэкенд: `bot` — расписание и нажатия, `api` — HTTP API админки, `store` и `db` — база и миграции, `message` — тексты сообщений, `report` — отчёт, `maxapi` — клиент MAX. |
 | `internal/message/*.tmpl` | Тексты сообщений в группе (`day.tmpl` — за день, `month.tmpl` — итоги). Шаблоны `html/template`, в MAX уходят в формате HTML. |
-| `src/` | Фронт: `features/` — разделы админки и отчёт, `components/` — общие компоненты. |
+| `src/` | Фронт: `features/` — разделы админки и отчёт, `components/` — общие компоненты. Юнит-тесты — в `__tests__/` рядом с кодом. |
+| `e2e/` | E2E-тесты фронта: `tests/` — сценарии по разделам, `pages/` — page objects, `mocks/` — подмена API и данные, `fixtures/` — фикстура `api`. |
 | `nginx/` | Конфиги nginx; прод-образ со сборкой фронта. |
 | `certs/` | Корневой сертификат Минцифры: им подписан API MAX, в образ бэкенда он добавляется к системным. |
 | `compose.yaml` | Локальная разработка. |
@@ -97,8 +99,8 @@ neprodlenka admin list             # список
 ## Разработка
 
 ```sh
-make install      # зависимости Go и npm
-make test         # тесты Go
+make install      # зависимости Go и npm, Chromium для Playwright
+make test         # тесты Go, юнит- и e2e-тесты фронта
 make lint         # go vet, gofmt, oxlint, eslint
 make build        # сборка бэкенда и фронта с проверкой типов
 make logs         # логи контейнеров
@@ -106,3 +108,13 @@ make down         # остановить
 ```
 
 Перед коммитом — `make lint test build`.
+
+Тесты фронта по отдельности: `npm run test:unit` (Vitest в режиме наблюдения), `npm run test:e2e`,
+`npm run test:e2e:ui` (Playwright с интерфейсом).
+
+- Юнит-тесты проверяют чистую логику без монтирования компонентов: цикл отметок, даты и деньги,
+  группировку кружков.
+- E2E-тесты ходят по собранному фронту (`vite build` и `vite preview` на порту 5174) в Chromium на
+  десктопе и в мобильной раскладке. Бэкенд не нужен: фикстура `api` подменяет все запросы к `/api`
+  (неизвестные получают 404), ставит логин в `localStorage` и замораживает время на 25 сентября 2026,
+  10:00 МСК. Отчёт о прогоне — в `playwright-report/`.
