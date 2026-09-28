@@ -137,6 +137,44 @@ func TestRender(t *testing.T) {
 	}
 }
 
+func TestRenderClubs(t *testing.T) {
+	date := time.Date(2026, 9, 26, 0, 0, 0, 0, time.UTC)
+	got := Render(Day{
+		Date:   date,
+		Closed: true,
+		Children: []store.DayChild{
+			{ID: 1, LastName: "Иванов", FirstName: "Петя"},
+			{ID: 5, LastName: "Петров", FirstName: "Гоша", Status: store.Absent},
+		},
+		Clubs: []store.DayClub{
+			{ChildID: 2, LastName: "Козлова", FirstName: "Аня", Start: "15:00", Name: "Футбол"},
+			{ChildID: 1, LastName: "Иванов", FirstName: "Петя", Start: "15:00", Name: "Футбол"},
+			{ChildID: 5, LastName: "Петров", FirstName: "Гоша", Start: "15:00", Name: "Футбол"},
+			{ChildID: 5, LastName: "Петров", FirstName: "Гоша", Start: "16:00", Name: "Бассейн"},
+			{ChildID: 1, LastName: "Иванов", FirstName: "Петя", Start: "15:00", Name: "Дзюдо"},
+			{ChildID: 3, LastName: "Ёлкин", FirstName: "Олег", Start: "14:30", Name: "Шахматы <A&B>"},
+		},
+		URL: "https://school.test/report/u1",
+	}).Text
+
+	want := `Спасибо! Сбор информации по обеду на <b>26 сентября (суббота)</b> завершён.
+
+❌ Не обедают (1):
+Петров Гоша
+✅ Обедают (1):
+Иванов Петя
+
+🎨 Кружки и секции:
+<b>14:30 Шахматы &lt;A&amp;B&gt;</b>: Ёлкин Олег
+<b>15:00 Дзюдо</b>: Иванов Петя
+<b>15:00 Футбол</b>: Иванов Петя, Козлова Аня
+
+<a href="https://school.test/report/u1">Открыть отчёт за месяц</a>`
+	if got != want {
+		t.Errorf("text:\n%s\n\nwant:\n%s", got, want)
+	}
+}
+
 func TestRenderWeekday(t *testing.T) {
 	want := []string{"21 сентября (понедельник)", "22 сентября (вторник)", "23 сентября (среда)", "24 сентября (четверг)",
 		"25 сентября (пятница)", "26 сентября (суббота)", "27 сентября (воскресенье)", "1 января (пятница)"}

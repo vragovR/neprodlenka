@@ -21,5 +21,10 @@
 ✅ Обедают все {{ .People }}:{{ range .Present }}
 {{ . }}{{ end }}
 {{- end }}
+{{- if .Clubs }}
+
+🎨 Кружки и секции:{{ range .Clubs }}
+<b>{{ .Start }} {{ .Name }}</b>: {{ .Children }}{{ end }}
+{{- end }}
 
 <a href="{{ .URL }}">Открыть отчёт за месяц</a>

@@ -61,7 +61,8 @@ func TestDay(t *testing.T) {
 	if r := d.Children[0]; r.Status != nil || !slices.Equal(r.Clubs, []dayClub{{"10:00", "Шахматы"}}) {
 		t.Errorf("before publish child 1: %+v", r)
 	}
-	if d.Message == nil || !strings.Contains(d.Message.Text, "Доброе утро!") || !strings.Contains(d.Message.Text, "Козлова Аня") {
+	if d.Message == nil || !strings.Contains(d.Message.Text, "Доброе утро!") || !strings.Contains(d.Message.Text, "Козлова Аня") ||
+		!strings.Contains(d.Message.Text, "🎨 Кружки и секции:\n<b>10:00 Шахматы</b>: Иванов Петя\n\n") {
 		t.Errorf("message before publish: %+v", d.Message)
 	}
 	if w := e.do(t, "PUT", "/api/days/2026-09-26/children/1/clubs", `{"clubs":[]}`, c); w.Code != http.StatusBadRequest {
@@ -103,6 +104,9 @@ func TestDay(t *testing.T) {
 		if !slices.Equal(r.Clubs, want[i]) {
 			t.Errorf("child %d clubs = %v, want %v", r.ChildID, r.Clubs, want[i])
 		}
+	}
+	if want := "🎨 Кружки и секции:\n<b>11:00 Футбол</b>: Сидоров Коля\n<b>12:30 Танцы</b>: Козлова Аня\n\n"; !strings.Contains(d.Message.Text, want) {
+		t.Errorf("message after put:\n%s", d.Message.Text)
 	}
 	if d.Children[2].Active || d.Children[2].Status != nil {
 		t.Errorf("inactive child with club: %+v", d.Children[2])

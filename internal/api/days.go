@@ -72,25 +72,18 @@ func (h *handler) getDay(w http.ResponseWriter, r *http.Request) {
 		statuses[c.ID] = c.Status
 	}
 
-	clubs := map[int64][]dayClubJSON{}
+	dayClubs := h.store.ScheduleClubs
 	if published {
-		dayClubs, err := h.store.DayClubs(r.Context(), date)
-		if err != nil {
-			h.internalError(w, err)
-			return
-		}
-		for _, c := range dayClubs {
-			clubs[c.ChildID] = append(clubs[c.ChildID], dayClubJSON{Start: c.Start, Name: c.Name})
-		}
-	} else {
-		weekday := store.Weekday(date)
-		for _, c := range children {
-			for _, club := range c.Clubs {
-				if club.Weekday == weekday && c.Active {
-					clubs[c.ID] = append(clubs[c.ID], dayClubJSON{Start: club.Start, Name: club.Name})
-				}
-			}
-		}
+		dayClubs = h.store.DayClubs
+	}
+	list, err := dayClubs(r.Context(), date)
+	if err != nil {
+		h.internalError(w, err)
+		return
+	}
+	clubs := map[int64][]dayClubJSON{}
+	for _, c := range list {
+		clubs[c.ChildID] = append(clubs[c.ChildID], dayClubJSON{Start: c.Start, Name: c.Name})
 	}
 
 	rows := []dayRowJSON{}
@@ -190,5 +183,6 @@ func (h *handler) putDayClubs(w http.ResponseWriter, r *http.Request) {
 		h.internalError(w, err)
 		return
 	}
+	h.redrawer.Redraw(date)
 	w.WriteHeader(http.StatusNoContent)
 }

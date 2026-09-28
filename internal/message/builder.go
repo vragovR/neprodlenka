@@ -25,11 +25,23 @@ func (b *Builder) Build(ctx context.Context, date time.Time) (Message, store.Pos
 	if err != nil || !ok {
 		return Message{}, store.Post{}, false, err
 	}
-	msg, err := b.BuildDay(ctx, date, post.Status == store.PostClosed)
+	clubs, err := b.store.DayClubs(ctx, date)
+	if err != nil {
+		return Message{}, store.Post{}, false, err
+	}
+	msg, err := b.buildDay(ctx, date, post.Status == store.PostClosed, clubs)
 	return msg, post, err == nil, err
 }
 
 func (b *Builder) BuildDay(ctx context.Context, date time.Time, closed bool) (Message, error) {
+	clubs, err := b.store.ScheduleClubs(ctx, date)
+	if err != nil {
+		return Message{}, err
+	}
+	return b.buildDay(ctx, date, closed, clubs)
+}
+
+func (b *Builder) buildDay(ctx context.Context, date time.Time, closed bool, clubs []store.DayClub) (Message, error) {
 	children, err := b.store.DayChildren(ctx, date)
 	if err != nil {
 		return Message{}, err
@@ -43,6 +55,7 @@ func (b *Builder) BuildDay(ctx context.Context, date time.Time, closed bool) (Me
 		CloseTime: b.closeTime,
 		Closed:    closed,
 		Children:  children,
+		Clubs:     clubs,
 		URL:       b.reportURL(uid),
 	}), nil
 }

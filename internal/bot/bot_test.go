@@ -173,6 +173,9 @@ func TestTickPublishCopiesDayClubs(t *testing.T) {
 	if got := dayClubs(t, a, "2026-09-26"); !slices.Equal(got, want) {
 		t.Errorf("day clubs = %v, want %v", got, want)
 	}
+	if text := a.MAX.Sent()[0].Text; !strings.Contains(text, "🎨 Кружки и секции:\n<b>10:00 Шахматы</b>: Иванов Петя\n<b>12:30 Танцы</b>: Козлова Аня\n\n") {
+		t.Errorf("text:\n%s", text)
+	}
 }
 
 func TestTickNoPublish(t *testing.T) {
