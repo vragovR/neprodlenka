@@ -91,6 +91,12 @@ func TestChildren(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("add: status = %d, body %s", w.Code, w.Body)
 	}
+	anya := decode[child](t, w.Body.String())
+
+	w = e.do(t, "PATCH", "/api/children/"+itoa(anya.ID), `{"parent_ids":[]}`, c)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"parent_ids":[]`) {
+		t.Errorf("unlink all: status = %d, body %s", w.Code, w.Body)
+	}
 
 	w = e.do(t, "PATCH", "/api/children/"+itoa(petya.ID), `{"price":14000,"parent_ids":[102,101,101]}`, c)
 	if w.Code != http.StatusOK {

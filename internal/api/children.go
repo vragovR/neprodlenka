@@ -168,7 +168,9 @@ func (h *handler) updateChild(w http.ResponseWriter, r *http.Request) {
 			c.Active = *req.Active
 		}
 		if req.ParentIDs != nil {
-			c.ParentIDs = slices.Compact(slices.Sorted(slices.Values(*req.ParentIDs)))
+			ids := slices.Clone(*req.ParentIDs)
+			slices.Sort(ids)
+			c.ParentIDs = slices.Compact(ids)
 		}
 		if req.Clubs != nil {
 			c.Clubs = clubs
