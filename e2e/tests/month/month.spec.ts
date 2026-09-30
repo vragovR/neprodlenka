@@ -64,6 +64,14 @@ test.describe('Month', () => {
     expect((await request).postDataJSON()).toEqual({ marks: [], payments: [{ child_id: 1, paid: true }] })
   })
 
+  test('month without marks', async ({ page, api }) => {
+    const monthPage = new MonthPage(page)
+    await api.mockAttendance({ ...attendance, children: [], message: null })
+    await monthPage.goto(month)
+
+    await expect(page.getByText('Отметок нет')).toBeVisible()
+  })
+
   test('shows the month message', async ({ page }) => {
     const monthPage = new MonthPage(page)
     await monthPage.goto(month)

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"neprodlenka/internal/clock"
 	"neprodlenka/internal/message"
 	"neprodlenka/internal/store"
 )
@@ -57,6 +58,7 @@ func (h *handler) getDay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	published := hasPost && post.MessageID != ""
+	upcoming := !hasPost && !date.Before(clock.Today(h.now()))
 	children, err := h.store.Children(r.Context())
 	if err != nil {
 		h.internalError(w, err)
@@ -90,7 +92,7 @@ func (h *handler) getDay(w http.ResponseWriter, r *http.Request) {
 	for _, c := range children {
 		status := statuses[c.ID]
 		childClubs := clubs[c.ID]
-		if !c.Active && status == "" && len(childClubs) == 0 {
+		if status == "" && !(upcoming && c.Active) && (!published || len(childClubs) == 0) {
 			continue
 		}
 		if childClubs == nil {
@@ -114,7 +116,7 @@ func (h *handler) getDay(w http.ResponseWriter, r *http.Request) {
 	if school {
 		msg, _, ok, err := h.builder.Build(r.Context(), date)
 		if err == nil && !ok {
-			msg, err = h.builder.BuildDay(r.Context(), date, false)
+			msg, err = h.builder.BuildDay(r.Context(), date, false, !upcoming)
 		}
 		if err != nil {
 			h.internalError(w, err)

@@ -2,6 +2,7 @@ package message
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"neprodlenka/internal/config"
@@ -25,27 +26,42 @@ func (b *Builder) Build(ctx context.Context, date time.Time) (Message, store.Pos
 	if err != nil || !ok {
 		return Message{}, store.Post{}, false, err
 	}
+	children, err := b.dayChildren(ctx, date, true)
+	if err != nil {
+		return Message{}, store.Post{}, false, err
+	}
 	clubs, err := b.store.DayClubs(ctx, date)
 	if err != nil {
 		return Message{}, store.Post{}, false, err
 	}
-	msg, err := b.buildDay(ctx, date, post.Status == store.PostClosed, clubs)
+	msg, err := b.buildDay(ctx, date, post.Status == store.PostClosed, children, clubs)
 	return msg, post, err == nil, err
 }
 
-func (b *Builder) BuildDay(ctx context.Context, date time.Time, closed bool) (Message, error) {
+func (b *Builder) BuildDay(ctx context.Context, date time.Time, closed, marked bool) (Message, error) {
+	children, err := b.dayChildren(ctx, date, marked)
+	if err != nil {
+		return Message{}, err
+	}
 	clubs, err := b.store.ScheduleClubs(ctx, date)
 	if err != nil {
 		return Message{}, err
 	}
-	return b.buildDay(ctx, date, closed, clubs)
+	clubs = slices.DeleteFunc(clubs, func(club store.DayClub) bool {
+		return !slices.ContainsFunc(children, func(c store.DayChild) bool { return c.ID == club.ChildID })
+	})
+	return b.buildDay(ctx, date, closed, children, clubs)
 }
 
-func (b *Builder) buildDay(ctx context.Context, date time.Time, closed bool, clubs []store.DayClub) (Message, error) {
+func (b *Builder) dayChildren(ctx context.Context, date time.Time, marked bool) ([]store.DayChild, error) {
 	children, err := b.store.DayChildren(ctx, date)
-	if err != nil {
-		return Message{}, err
+	if err != nil || !marked {
+		return children, err
 	}
+	return slices.DeleteFunc(children, func(c store.DayChild) bool { return c.Status == "" }), nil
+}
+
+func (b *Builder) buildDay(ctx context.Context, date time.Time, closed bool, children []store.DayChild, clubs []store.DayClub) (Message, error) {
 	uid, err := b.store.ReportUID(ctx, date)
 	if err != nil {
 		return Message{}, err

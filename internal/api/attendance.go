@@ -84,7 +84,7 @@ func (h *handler) getAttendance(w http.ResponseWriter, r *http.Request) {
 
 	rows := []attendanceRowJSON{}
 	for _, c := range children {
-		if !c.Active && len(byChild[c.ID]) == 0 {
+		if len(byChild[c.ID]) == 0 {
 			continue
 		}
 		childMarks := byChild[c.ID]

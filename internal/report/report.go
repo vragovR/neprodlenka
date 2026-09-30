@@ -32,6 +32,14 @@ type Row struct {
 }
 
 func Build(month time.Time, noSchoolDays []string, children []store.Child, marks []store.Mark) Report {
+	return build(month, noSchoolDays, children, marks, false)
+}
+
+func BuildChild(month time.Time, noSchoolDays []string, child store.Child, marks []store.Mark) Report {
+	return build(month, noSchoolDays, []store.Child{child}, marks, true)
+}
+
+func build(month time.Time, noSchoolDays []string, children []store.Child, marks []store.Mark, unmarked bool) Report {
 	byChild := map[int64]map[string]store.Mark{}
 	for _, m := range marks {
 		if byChild[m.ChildID] == nil {
@@ -48,7 +56,7 @@ func Build(month time.Time, noSchoolDays []string, children []store.Child, marks
 
 	for _, c := range children {
 		childMarks := byChild[c.ID]
-		if !c.Active && len(childMarks) == 0 {
+		if !unmarked && len(childMarks) == 0 {
 			continue
 		}
 		row := Row{

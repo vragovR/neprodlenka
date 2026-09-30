@@ -38,6 +38,15 @@ export const unpublishedDay: Day = {
   children: publishedDay.children.map((c) => ({ ...c, status: c.child_id === 1 ? 'absent' : null })),
 }
 
+export const pastUnmarkedDay: Day = {
+  date: '2026-09-24',
+  school: true,
+  published: false,
+  closed: false,
+  children: [],
+  message: null,
+}
+
 export const noSchoolDay: Day = {
   date: '2026-09-26',
   school: false,

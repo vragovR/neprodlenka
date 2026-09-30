@@ -65,10 +65,8 @@ func TestBuildOpen(t *testing.T) {
 
 ❌ Не обедают (1):
 Сидоров Коля
-✅ Обедают (3):
+✅ Обедают (1):
 Иванов Петя
-Козлова Аня
-Петрова Маша
 
 <a href="https://school.test/report/`
 	if !strings.HasPrefix(msg.Text, want) {
@@ -98,10 +96,8 @@ func TestBuildClosed(t *testing.T) {
 
 ❌ Не обедают (1):
 Сидоров Коля
-✅ Обедают (3):
+✅ Обедают (1):
 Иванов Петя
-Козлова Аня
-Петрова Маша
 
 <a href="https://school.test/report/`
 	if !strings.HasPrefix(msg.Text, want) {

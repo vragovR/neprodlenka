@@ -103,7 +103,6 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnUnload))
     </UiEmpty>
     <div v-else-if="!data" class="center"><UiSpinner /></div>
     <UiEmpty v-else-if="!data.school" title="Неучебный день" text="В этот день сообщение в группу не отправляется." />
-    <UiEmpty v-else-if="!data.children.length" title="Нет детей" text="Добавьте детей на вкладке «Дети»." />
     <UiEmpty v-else-if="!marked" title="Отметок нет" :text="emptyText">
       <UiButton v-if="date < today()" @click="router.push({ name: 'month', params: { month: monthOf(date) } })">
         Открыть месяц

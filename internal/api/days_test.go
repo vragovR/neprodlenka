@@ -113,6 +113,27 @@ func TestDay(t *testing.T) {
 	}
 }
 
+func TestDayPastShowsOnlyMarked(t *testing.T) {
+	t.Parallel()
+	e, c := attendanceEnv(t)
+	e.a.Exec(t, `INSERT INTO child_clubs (child_id, weekday, start, name) VALUES (1, 5, '10:00', 'Шахматы'), (2, 5, '11:00', 'Футбол')`)
+	e.a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES ('2026-09-25', 1, 'present', 13000)`)
+
+	d := getDay(t, e, c, "2026-09-25")
+	if !slices.Equal(dayIDs(d), []int64{1}) {
+		t.Errorf("children = %v, want 1", dayIDs(d))
+	}
+	if d.Message == nil || !strings.Contains(d.Message.Text, "Иванов Петя") || strings.Contains(d.Message.Text, "Козлова") {
+		t.Errorf("message: %+v", d.Message)
+	}
+
+	e.a.Exec(t, `INSERT INTO daily_posts (date, status, message_id) VALUES ('2026-09-26', 'open', 'm1')`)
+	e.a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES ('2026-09-26', 1, 'pending', 0)`)
+	if d := getDay(t, e, c, "2026-09-26"); !slices.Equal(dayIDs(d), []int64{1}) || strings.Contains(d.Message.Text, "Козлова") {
+		t.Errorf("published today: children = %v, message %+v", dayIDs(d), d.Message)
+	}
+}
+
 func TestDayErrors(t *testing.T) {
 	t.Parallel()
 	e, c := attendanceEnv(t)

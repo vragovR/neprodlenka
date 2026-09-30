@@ -39,6 +39,7 @@ func TestBuild(t *testing.T) {
 		{ID: 2, LastName: "Козлова", Active: true},
 		{ID: 3, LastName: "Сидоров", Active: false},
 		{ID: 4, LastName: "Орлов", Active: false},
+		{ID: 5, LastName: "Петров", Active: true},
 	}
 	marks := []store.Mark{
 		{ChildID: 1, Date: "2026-02-01", Status: store.Present, Price: 13000},

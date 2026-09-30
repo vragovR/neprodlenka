@@ -85,8 +85,7 @@ func (h *handler) getChildReport(w http.ResponseWriter, r *http.Request) {
 	}
 	marks = slices.DeleteFunc(marks, func(m store.Mark) bool { return m.ChildID != child.ID })
 
-	child.Active = true
-	rep := report.Build(month, days, []store.Child{child}, marks)
+	rep := report.BuildChild(month, days, child, marks)
 	row := rep.Children[0]
 	writeJSON(w, http.StatusOK, map[string]any{
 		"month":    rep.Month,

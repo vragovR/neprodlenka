@@ -114,7 +114,11 @@ onBeforeRouteLeave(confirmLeave)
     >
       <UiButton @click="router.push({ name: 'calendar', params: { month } })">Открыть календарь</UiButton>
     </UiEmpty>
-    <UiEmpty v-else-if="!data.children.length" title="Нет детей" text="Добавьте детей на вкладке «Дети»." />
+    <UiEmpty
+      v-else-if="!data.children.length"
+      title="Отметок нет"
+      text="Дети появятся в месяце с первой отметкой — после первого сообщения за день."
+    />
     <template v-else>
       <MonthSummary
         :children="data.children.length"

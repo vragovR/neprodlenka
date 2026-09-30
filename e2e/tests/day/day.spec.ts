@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/api.fixture'
 import { today } from '../../mocks/fixtures/dates'
-import { noSchoolDay, publishedDay, unpublishedDay } from '../../mocks/fixtures/day'
+import { noSchoolDay, pastUnmarkedDay, publishedDay, unpublishedDay } from '../../mocks/fixtures/day'
 import { DayPage } from '../../pages/day.page'
 
 test.describe('Day', () => {
@@ -59,6 +59,15 @@ test.describe('Day', () => {
     await expect(page.getByText('Сообщения за этот день не было')).toBeVisible()
     await expect(dayPage.card('Иванов Петя')).toContainText('15:00 Шахматы')
     await expect(page.getByRole('button', { name: '+ Кружок' })).toHaveCount(0)
+  })
+
+  test('past day without marks links to the month', async ({ page, api }) => {
+    const dayPage = new DayPage(page)
+    await api.mockDay(pastUnmarkedDay)
+    await dayPage.goto(pastUnmarkedDay.date)
+
+    await expect(page.getByText('Отметок нет')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Открыть месяц' })).toBeVisible()
   })
 
   test('no school day', async ({ page, api }) => {
