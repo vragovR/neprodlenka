@@ -3,7 +3,14 @@ import { isSchool, month, septemberDates, today } from './dates'
 
 const published = septemberDates.filter((d) => isSchool(d) && d <= today)
 
-function row(childId: number, lastName: string, firstName: string, price: number, special: Record<string, Status>): AttendanceRow {
+function row(
+  childId: number,
+  lastName: string,
+  firstName: string,
+  price: number,
+  special: Record<string, Status>,
+  paid = false,
+): AttendanceRow {
   const marks = Object.fromEntries(published.map((d) => [d, special[d] ?? 'present']))
   const present = Object.values(marks).filter((s) => s === 'present').length
   return {
@@ -14,6 +21,7 @@ function row(childId: number, lastName: string, firstName: string, price: number
     active: true,
     marks,
     total: present * price,
+    paid,
   }
 }
 
@@ -27,7 +35,7 @@ export const attendance: Attendance = {
   })),
   children: [
     row(1, 'Иванов', 'Петя', 13000, { '2026-09-10': 'absent', [today]: 'pending' }),
-    row(2, 'Козлова', 'Аня', 15000, { [today]: 'absent' }),
+    row(2, 'Козлова', 'Аня', 15000, { [today]: 'absent' }, true),
   ],
   message: { text: 'Питание за сентябрь 2026.', buttons: [] },
   sent: false,

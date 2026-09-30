@@ -28,6 +28,7 @@ type monthRow struct {
 	Days  string
 	Price int64
 	Total int64
+	Paid  bool
 }
 
 type monthData struct {
@@ -39,7 +40,7 @@ type monthData struct {
 	Payment  Payment
 }
 
-func RenderMonth(month time.Time, r report.Report, url string, p Payment) Message {
+func RenderMonth(month time.Time, r report.Report, paid map[int64]bool, url string, p Payment) Message {
 	rows := make([]monthRow, 0, len(r.Children))
 	meals := 0
 	for _, c := range r.Children {
@@ -48,6 +49,7 @@ func RenderMonth(month time.Time, r report.Report, url string, p Payment) Messag
 			Days:  plural(c.Present, "день", "дня", "дней"),
 			Price: c.MealPrice(),
 			Total: c.Total,
+			Paid:  paid[c.ID],
 		})
 		meals += c.Present
 	}

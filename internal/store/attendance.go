@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 )
@@ -12,7 +13,7 @@ type MarkChange struct {
 	Status  Status
 }
 
-func (s *Store) SaveMarks(ctx context.Context, changes []MarkChange) error {
+func (s *Store) SaveMarks(ctx context.Context, month time.Time, changes []MarkChange, payments []PaymentChange) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("save marks: %w", err)
@@ -21,12 +22,8 @@ func (s *Store) SaveMarks(ctx context.Context, changes []MarkChange) error {
 
 	for _, c := range changes {
 		d := c.Date.Format(time.DateOnly)
-		var exists bool
-		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM children WHERE id = ?)`, c.ChildID).Scan(&exists); err != nil {
+		if err := childExists(ctx, tx, c.ChildID); err != nil {
 			return fmt.Errorf("save marks: %w", err)
-		}
-		if !exists {
-			return fmt.Errorf("%w: child %d", ErrNotFound, c.ChildID)
 		}
 		if c.Status == "" {
 			if _, err := tx.ExecContext(ctx, `DELETE FROM attendance WHERE date = ? AND child_id = ?`, d, c.ChildID); err != nil {
@@ -45,8 +42,33 @@ func (s *Store) SaveMarks(ctx context.Context, changes []MarkChange) error {
 		}
 	}
 
+	m := month.Format(monthLayout)
+	for _, p := range payments {
+		if err := childExists(ctx, tx, p.ChildID); err != nil {
+			return fmt.Errorf("save marks: %w", err)
+		}
+		query := `DELETE FROM payments WHERE month = ? AND child_id = ?`
+		if p.Paid {
+			query = `INSERT INTO payments (month, child_id) VALUES (?, ?) ON CONFLICT DO NOTHING`
+		}
+		if _, err := tx.ExecContext(ctx, query, m, p.ChildID); err != nil {
+			return fmt.Errorf("save marks: %w", err)
+		}
+	}
+
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("save marks: %w", err)
+	}
+	return nil
+}
+
+func childExists(ctx context.Context, tx *sql.Tx, id int64) error {
+	var exists bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM children WHERE id = ?)`, id).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("%w: child %d", ErrNotFound, id)
 	}
 	return nil
 }

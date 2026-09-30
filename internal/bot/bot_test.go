@@ -475,7 +475,7 @@ func TestTickSummary(t *testing.T) {
 	if len(sent) != 1 {
 		t.Fatalf("sent %d, want 1", len(sent))
 	}
-	if want := "Питание за сентябрь 2026.\nПроверьте, пожалуйста, свою сумму и оплатите.\n\n• <b>Иванов Петя</b>: 1 день × 130\u00a0₽ = 130\u00a0₽\n• <b>Козлова Аня</b>: 0 дней × 150\u00a0₽ = 0\u00a0₽\n\nИтого по классу: 130\u00a0₽ (1 обед)."; !strings.HasPrefix(sent[0].Text, want) {
+	if want := "Питание за сентябрь 2026.\nПроверьте, пожалуйста, свою сумму и оплатите.\n\n🔴 <b>Иванов Петя</b>: 1 день × 130\u00a0₽ = 130\u00a0₽\n🔴 <b>Козлова Аня</b>: 0 дней × 150\u00a0₽ = 0\u00a0₽\n\nИтого по классу: 130\u00a0₽ (1 обед)."; !strings.HasPrefix(sent[0].Text, want) {
 		t.Errorf("text:\n%s", sent[0].Text)
 	}
 	var messageID string

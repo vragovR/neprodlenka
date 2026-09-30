@@ -10,6 +10,7 @@ import type {
   DayClub,
   MarkChange,
   Month,
+  PaymentChange,
   Report,
 } from './types'
 
@@ -31,8 +32,8 @@ export const putMonth = (month: string, noSchoolDays: string[]) =>
 
 export const getAttendance = (month: string) => request<Attendance>('GET', `/attendance/${month}`)
 
-export const putAttendance = (month: string, marks: MarkChange[]) =>
-  request<void>('PUT', `/attendance/${month}`, { marks })
+export const putAttendance = (month: string, marks: MarkChange[], payments?: PaymentChange[]) =>
+  request<void>('PUT', `/attendance/${month}`, { marks, payments })
 
 export const getDay = (date: string) => request<Day>('GET', `/days/${date}`)
 

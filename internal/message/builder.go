@@ -77,8 +77,12 @@ func (b *Builder) BuildMonth(ctx context.Context, month time.Time) (Message, sto
 	if err != nil {
 		return Message{}, store.ReportMonth{}, false, err
 	}
+	paid, err := b.store.MonthPaid(ctx, month)
+	if err != nil {
+		return Message{}, store.ReportMonth{}, false, err
+	}
 	r := report.Build(month, days, children, marks)
-	return RenderMonth(month, r, b.reportURL(rm.UID), b.payment), rm, true, nil
+	return RenderMonth(month, r, paid, b.reportURL(rm.UID), b.payment), rm, true, nil
 }
 
 func (b *Builder) reportURL(uid string) string {

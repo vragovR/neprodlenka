@@ -275,6 +275,7 @@ type attendanceRow struct {
 	Active  bool              `json:"active"`
 	Marks   map[string]string `json:"marks"`
 	Total   int64             `json:"total"`
+	Paid    bool              `json:"paid"`
 }
 
 type attendance struct {
@@ -429,11 +430,40 @@ func TestAttendanceRedrawsMonthSummary(t *testing.T) {
 	putAttendance(t, e, c, `{"marks":[{"date":"2026-09-24","child_id":2,"status":"present"}]}`)
 
 	edit := e.a.MAX.NextEdit(t)
-	if edit.MessageID != "m9" || !strings.Contains(edit.Message.Text, "• <b>Козлова Аня</b>: 1 день × 150\u00a0₽ = 150\u00a0₽") {
+	if edit.MessageID != "m9" || !strings.Contains(edit.Message.Text, "🔴 <b>Козлова Аня</b>: 1 день × 150\u00a0₽ = 150\u00a0₽") {
 		t.Errorf("edit %s:\n%s", edit.MessageID, edit.Message.Text)
 	}
 	if a := getAttendance(t, e, c); a.Message == nil || a.Message.Text != edit.Message.Text || !a.Sent {
 		t.Errorf("message = %+v, want %q", a.Message, edit.Message.Text)
+	}
+}
+
+func TestAttendancePayments(t *testing.T) {
+	t.Parallel()
+	e, c := attendanceEnv(t)
+	e.a.Exec(t, `INSERT INTO report_months (month, uid, message_id) VALUES ('2026-09', 'u1', 'm9')`)
+	e.a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES ('2026-09-24', 2, 'present', 15000)`)
+
+	putAttendance(t, e, c, `{"marks":[],"payments":[{"child_id":2,"paid":true}]}`)
+
+	edit := e.a.MAX.NextEdit(t)
+	if edit.MessageID != "m9" || !strings.Contains(edit.Message.Text, "🟢 <b>Козлова Аня</b>: 1 день × 150\u00a0₽ = 150\u00a0₽") {
+		t.Errorf("edit %s:\n%s", edit.MessageID, edit.Message.Text)
+	}
+	if a := getAttendance(t, e, c); a.Children[0].Paid || !a.Children[1].Paid {
+		t.Errorf("children = %+v, want only 2 paid", a.Children)
+	}
+
+	putAttendance(t, e, c, `{"marks":[],"payments":[{"child_id":2,"paid":false}]}`)
+	if edit := e.a.MAX.NextEdit(t); !strings.Contains(edit.Message.Text, "🔴 <b>Козлова Аня</b>: 1 день × 150\u00a0₽ = 150\u00a0₽") {
+		t.Errorf("after unpaid:\n%s", edit.Message.Text)
+	}
+	if a := getAttendance(t, e, c); a.Children[1].Paid {
+		t.Errorf("children = %+v, want none paid", a.Children)
+	}
+
+	if w := e.do(t, "PUT", "/api/attendance/2026-09", `{"marks":[],"payments":[{"child_id":99,"paid":true}]}`, c); w.Code != http.StatusBadRequest {
+		t.Errorf("unknown child: status = %d, want 400", w.Code)
 	}
 }
 

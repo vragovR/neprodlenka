@@ -3,13 +3,15 @@ import { useTemplateRef, watch } from 'vue'
 import type { AttendanceDay, AttendanceRow, Status } from '@/api/types'
 import { dayOfMonth, formatMoney, fullName, shortName, today, weekday, weekdaysShort } from '@/utils/format'
 import AttendanceCell from './AttendanceCell.vue'
+import PaidToggle from './PaidToggle.vue'
 
-const { days, rows, status } = defineProps<{
+const { days, rows, status, paid } = defineProps<{
   days: AttendanceDay[]
   rows: AttendanceRow[]
   status: (date: string, childId: number) => Status | null
+  paid: (childId: number) => boolean
 }>()
-const emit = defineEmits<{ toggle: [date: string, childId: number] }>()
+const emit = defineEmits<{ toggle: [date: string, childId: number]; togglePaid: [childId: number] }>()
 
 const now = today()
 const scroll = useTemplateRef('scroll')
@@ -68,7 +70,10 @@ function dayTitle(day: AttendanceDay) {
               @toggle="emit('toggle', d.date, r.child_id)"
             />
           </td>
-          <td class="pay">{{ formatMoney(r.total) }}</td>
+          <td class="pay">
+            <span class="sum">{{ formatMoney(r.total) }}</span>
+            <PaidToggle :paid="paid(r.child_id)" @toggle="emit('togglePaid', r.child_id)" />
+          </td>
         </tr>
       </tbody>
     </table>
@@ -204,7 +209,9 @@ thead .today .num {
   text-align: right;
 }
 
-tbody .pay {
+tbody .pay .sum {
+  display: block;
+  margin-bottom: 2px;
   font-weight: 600;
 }
 

@@ -30,4 +30,8 @@ export class MonthPage {
       .getByRole('cell')
       .last()
   }
+
+  paid(name: string): Locator {
+    return this.pay(name).getByRole('button')
+  }
 }

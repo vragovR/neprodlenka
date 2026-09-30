@@ -54,6 +54,7 @@ export interface AttendanceRow extends PersonName {
   active: boolean
   marks: Record<string, Status>
   total: number
+  paid: boolean
 }
 
 export interface Attendance {
@@ -88,6 +89,11 @@ export interface Day {
   closed: boolean
   children: DayRow[]
   message: BotMessage | null
+}
+
+export interface PaymentChange {
+  child_id: number
+  paid: boolean
 }
 
 export interface MarkChange {

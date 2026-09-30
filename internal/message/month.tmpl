@@ -1,7 +1,7 @@
 Питание за {{ .Month }}.
 Проверьте, пожалуйста, свою сумму и оплатите.
 {{ range .Children }}
-• <b>{{ .Name }}</b>: {{ .Days }}{{ with .Price }} × {{ money . }}{{ end }} = {{ money .Total }}
+{{ if .Paid }}🟢{{ else }}🔴{{ end }} <b>{{ .Name }}</b>: {{ .Days }}{{ with .Price }} × {{ money . }}{{ end }} = {{ money .Total }}
 {{- end }}
 
 Итого по классу: {{ money .Total }} ({{ .Meals }}).

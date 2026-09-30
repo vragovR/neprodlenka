@@ -48,7 +48,24 @@ const meals = computed(
 const saved = (date: string, childId: number): Status | null =>
   data.value?.children.find((c) => c.child_id === childId)?.marks[date] ?? null
 const { changes, status, toggle, reset } = useMarks(saved)
-watch(data, reset)
+
+const paidChanges = ref(new Map<number, boolean>())
+const savedPaid = (childId: number) => !!data.value?.children.find((c) => c.child_id === childId)?.paid
+const paid = (childId: number) => paidChanges.value.get(childId) ?? savedPaid(childId)
+function togglePaid(childId: number) {
+  const value = !paid(childId)
+  if (value === savedPaid(childId)) {
+    paidChanges.value.delete(childId)
+  } else {
+    paidChanges.value.set(childId, value)
+  }
+}
+const dirty = computed(() => changes.value.size + paidChanges.value.size > 0)
+
+watch(data, () => {
+  reset()
+  paidChanges.value = new Map()
+})
 
 const saving = ref(false)
 const messageOpen = ref(false)
@@ -56,7 +73,11 @@ const messageOpen = ref(false)
 async function save() {
   saving.value = true
   try {
-    await putAttendance(month.value, [...changes.value.values()])
+    await putAttendance(
+      month.value,
+      [...changes.value.values()],
+      [...paidChanges.value].map(([child_id, paid]) => ({ child_id, paid })),
+    )
     toast('Отметки сохранены')
     await run()
   } catch (e) {
@@ -66,7 +87,7 @@ async function save() {
   }
 }
 
-const confirmLeave = () => !changes.value.size || confirm('Отметки не сохранены. Уйти?')
+const confirmLeave = () => !dirty.value || confirm('Отметки не сохранены. Уйти?')
 onBeforeRouteUpdate(confirmLeave)
 onBeforeRouteLeave(confirmLeave)
 </script>
@@ -103,24 +124,34 @@ onBeforeRouteLeave(confirmLeave)
       />
       <div class="toolbar">
         <p v-if="viewMode === 'calendar'" class="muted hint">
-          Нажмите на день: обедает (зелёный) → не обедает (красный) → без отметки. Жёлтый «?» — родитель ещё не отметился, при закрытии отметки станет «обедает». Бледные дни — неучебные. Сумма — по сохранённым отметкам.
+          Нажмите на день: обедает (зелёный) → не обедает (красный) → без отметки. Жёлтый «?» — родитель ещё не отметился, при закрытии отметки станет «обедает». Бледные дни — неучебные. Сумма — по сохранённым отметкам, рядом — оплачено ли за месяц.
         </p>
         <p v-else class="muted hint">
-          Нажмите на ячейку: ✓ обедает → ✕ не обедает → серая — без отметки. Жёлтый «?» — родитель ещё не отметился, при закрытии отметки станет «обедает». Точка под датой — в группе было сообщение (синяя — отметка ещё идёт). Бледные даты — неучебные дни. «К оплате» — по сохранённым отметкам.
+          Нажмите на ячейку: ✓ обедает → ✕ не обедает → серая — без отметки. Жёлтый «?» — родитель ещё не отметился, при закрытии отметки станет «обедает». Точка под датой — в группе было сообщение (синяя — отметка ещё идёт). Бледные даты — неучебные дни. «К оплате» — по сохранённым отметкам, под суммой — оплачено ли за месяц.
         </p>
-        <UiButton variant="primary" :disabled="!changes.size" :loading="saving" @click="save">Сохранить</UiButton>
+        <UiButton variant="primary" :disabled="!dirty" :loading="saving" @click="save">Сохранить</UiButton>
       </div>
       <AttendanceCalendars
         v-if="viewMode === 'calendar'"
         :days="data.days"
         :rows="data.children"
         :status="status"
+        :paid="paid"
         @toggle="toggle"
+        @toggle-paid="togglePaid"
       />
-      <AttendanceTable v-else :days="data.days" :rows="data.children" :status="status" @toggle="toggle" />
+      <AttendanceTable
+        v-else
+        :days="data.days"
+        :rows="data.children"
+        :status="status"
+        :paid="paid"
+        @toggle="toggle"
+        @toggle-paid="togglePaid"
+      />
     </template>
     <UiModal v-model:open="messageOpen" title="Сообщение месяца">
-      <MessagePreview v-if="data?.message" :message="data.message" :sent="data.sent" :dirty="changes.size > 0" />
+      <MessagePreview v-if="data?.message" :message="data.message" :sent="data.sent" :dirty="dirty" />
     </UiModal>
   </main>
 </template>

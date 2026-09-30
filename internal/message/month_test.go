@@ -11,23 +11,23 @@ func TestRenderMonth(t *testing.T) {
 	month := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	r := report.Report{
 		Children: []report.Row{
-			{LastName: "Иванов", FirstName: "Петя", Present: 21, Total: 273000},
-			{LastName: "Козлова", FirstName: "Аня", Present: 2, Total: 28000},
+			{ID: 1, LastName: "Иванов", FirstName: "Петя", Present: 21, Total: 273000},
+			{ID: 2, LastName: "Козлова", FirstName: "Аня", Present: 2, Total: 28000},
 			{LastName: "Орлов", FirstName: "Гриша", Present: 11, Total: 143050},
 			{LastName: "Петрова", FirstName: "Маша", Present: 0, Price: 13000},
 		},
 		Total: 444050,
 	}
 
-	got := RenderMonth(month, r, "https://school.test/report/u1", Payment{Card: "2202 0000 0000 0000", Recipient: "Иванова Мария Петровна"}).Text
+	got := RenderMonth(month, r, map[int64]bool{2: true}, "https://school.test/report/u1", Payment{Card: "2202 0000 0000 0000", Recipient: "Иванова Мария Петровна"}).Text
 
 	want := `Питание за сентябрь 2026.
 Проверьте, пожалуйста, свою сумму и оплатите.
 
-• <b>Иванов Петя</b>: 21 день × 130 ₽ = 2 730 ₽
-• <b>Козлова Аня</b>: 2 дня × 140 ₽ = 280 ₽
-• <b>Орлов Гриша</b>: 11 дней = 1 430,50 ₽
-• <b>Петрова Маша</b>: 0 дней × 130 ₽ = 0 ₽
+🔴 <b>Иванов Петя</b>: 21 день × 130 ₽ = 2 730 ₽
+🟢 <b>Козлова Аня</b>: 2 дня × 140 ₽ = 280 ₽
+🔴 <b>Орлов Гриша</b>: 11 дней = 1 430,50 ₽
+🔴 <b>Петрова Маша</b>: 0 дней × 130 ₽ = 0 ₽
 
 Итого по классу: 4 440,50 ₽ (34 обеда).
 <a href="https://school.test/report/u1">Открыть отчёт за месяц</a>

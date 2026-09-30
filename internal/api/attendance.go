@@ -25,6 +25,7 @@ type attendanceRowJSON struct {
 	Active     bool              `json:"active"`
 	Marks      map[string]string `json:"marks"`
 	Total      int64             `json:"total"`
+	Paid       bool              `json:"paid"`
 }
 
 func (h *handler) getAttendance(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +50,11 @@ func (h *handler) getAttendance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	marks, err := h.store.MonthMarks(r.Context(), month)
+	if err != nil {
+		h.internalError(w, err)
+		return
+	}
+	paid, err := h.store.MonthPaid(r.Context(), month)
 	if err != nil {
 		h.internalError(w, err)
 		return
@@ -93,6 +99,7 @@ func (h *handler) getAttendance(w http.ResponseWriter, r *http.Request) {
 			Active:     c.Active,
 			Marks:      childMarks,
 			Total:      totals[c.ID],
+			Paid:       paid[c.ID],
 		})
 	}
 
@@ -127,6 +134,10 @@ func (h *handler) putAttendance(w http.ResponseWriter, r *http.Request) {
 			ChildID int64   `json:"child_id"`
 			Status  *string `json:"status"`
 		} `json:"marks"`
+		Payments []struct {
+			ChildID int64 `json:"child_id"`
+			Paid    bool  `json:"paid"`
+		} `json:"payments"`
 	}
 	if !readJSON(w, r, &req) {
 		return
@@ -170,7 +181,12 @@ func (h *handler) putAttendance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = h.store.SaveMarks(r.Context(), changes)
+	payments := make([]store.PaymentChange, 0, len(req.Payments))
+	for _, p := range req.Payments {
+		payments = append(payments, store.PaymentChange{ChildID: p.ChildID, Paid: p.Paid})
+	}
+
+	err = h.store.SaveMarks(r.Context(), month, changes, payments)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusBadRequest, "validation", "Неизвестный ребёнок")
 		return
@@ -182,6 +198,9 @@ func (h *handler) putAttendance(w http.ResponseWriter, r *http.Request) {
 
 	for _, date := range dates {
 		h.redrawer.Redraw(date)
+	}
+	if len(dates) == 0 && len(payments) > 0 {
+		h.redrawer.RedrawMonth(month)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
