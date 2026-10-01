@@ -25,6 +25,7 @@ export default defineConfig({
       use: { ...devices['Pixel 5'] },
     },
   ],
+  globalSetup: './e2e/global-setup.ts',
   webServer: {
     command: `npx vite build && npx vite preview --port ${port} --strictPort`,
     url: `http://localhost:${port}`,

@@ -137,6 +137,7 @@ onBeforeRouteLeave(confirmLeave)
       </div>
       <AttendanceCalendars
         v-if="viewMode === 'calendar'"
+        :inert="saving"
         :days="data.days"
         :rows="data.children"
         :status="status"
@@ -146,6 +147,7 @@ onBeforeRouteLeave(confirmLeave)
       />
       <AttendanceTable
         v-else
+        :inert="saving"
         :days="data.days"
         :rows="data.children"
         :status="status"

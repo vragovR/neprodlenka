@@ -1,10 +1,12 @@
-import { test, expect } from '../../fixtures/api.fixture'
-import { childrenResponse, petya } from '../../mocks/fixtures/children'
+import { test, expect } from '../../fixtures/backend.fixture'
+import { anya, kolya, members, petya } from '../../data/children'
 import { ChildrenPage } from '../../pages/children.page'
 
 test.describe('Children', () => {
-  test.beforeEach(async ({ api }) => {
-    await api.mockChildren(childrenResponse)
+  test.use({ members: [members, { scope: 'test' }] })
+
+  test.beforeEach(async ({ backend }) => {
+    for (const child of [anya, kolya, petya]) await backend.addChild(child)
   })
 
   test('lists active children by name, inactive under a spoiler', async ({ page }) => {
@@ -19,9 +21,8 @@ test.describe('Children', () => {
     await expect(childrenPage.card('Иванов Петя')).toContainText('Шахматы · Пн, Ср 15:00')
   })
 
-  test('adds a child', async ({ page, api }) => {
+  test('adds a child', async ({ page }) => {
     const childrenPage = new ChildrenPage(page)
-    await api.mockAddChild(10)
     await childrenPage.goto()
 
     await childrenPage.addButton.click()
@@ -31,18 +32,19 @@ test.describe('Children', () => {
 
     await childrenPage.dialog.getByLabel('Фамилия').fill(' Ёлкин ')
     await childrenPage.dialog.getByLabel('Имя').fill('Олег')
-    const request = page.waitForRequest('/api/children')
     await childrenPage.dialog.getByRole('button', { name: 'Добавить' }).click()
 
-    expect((await request).postDataJSON()).toEqual({ last_name: 'Ёлкин', first_name: 'Олег', middle_name: '', price: 13000 })
     await expect(childrenPage.dialog).toBeHidden()
     await expect(page.getByText('Ёлкин Олег добавлен(а)')).toBeVisible()
     await expect(childrenPage.names().first()).toHaveText('Ёлкин Олег')
+
+    await page.reload()
+    await expect(childrenPage.names()).toHaveText(['Ёлкин Олег', 'Иванов Петя', 'Козлова Аня Олеговна'])
+    await expect(childrenPage.card('Ёлкин Олег').getByTitle('Изменить цену')).toHaveText('130 ₽ / день')
   })
 
-  test('saves price and a new club by the card button', async ({ page, api }) => {
+  test('saves price and a new club by the card button', async ({ page }) => {
     const childrenPage = new ChildrenPage(page)
-    await api.mockUpdateChild(petya)
     await childrenPage.goto()
     const card = childrenPage.card('Иванов Петя')
 
@@ -57,19 +59,18 @@ test.describe('Children', () => {
     await card.getByRole('button', { name: 'Добавить' }).click()
     await expect(card).toContainText('Робототехника · Пт 14:30')
 
-    const request = page.waitForRequest('/api/children/1')
     await card.getByRole('button', { name: 'Сохранить' }).click()
-
-    const body = (await request).postDataJSON()
-    expect(body.price).toBe(15000)
-    expect(body.clubs).toEqual([...petya.clubs, { name: 'Робототехника', start: '14:30', weekday: 5 }])
     await expect(page.getByText('Сохранено')).toBeVisible()
     await expect(card.getByRole('button', { name: 'Сохранить' })).toBeHidden()
+
+    await page.reload()
+    await expect(card.getByTitle('Изменить цену')).toHaveText('150 ₽ / день')
+    await expect(card).toContainText('Шахматы · Пн, Ср 15:00')
+    await expect(card).toContainText('Робототехника · Пт 14:30')
   })
 
-  test('sets attendance weekdays', async ({ page, api }) => {
+  test('sets attendance weekdays', async ({ page }) => {
     const childrenPage = new ChildrenPage(page)
-    await api.mockUpdateChild(petya)
     await childrenPage.goto()
     const card = childrenPage.card('Иванов Петя')
     const days = card.getByRole('group', { name: 'Дни посещения' })
@@ -84,19 +85,21 @@ test.describe('Children', () => {
 
     await days.getByRole('button', { name: 'Вт' }).click()
     await days.getByRole('button', { name: 'Чт' }).click()
-    await expect(days.getByRole('button', { name: 'Чт' })).toHaveAttribute('aria-pressed', 'true')
-
-    const request = page.waitForRequest('/api/children/1')
     await save.click()
-
-    expect((await request).postDataJSON().weekdays).toEqual([2, 4])
     await expect(page.getByText('Сохранено')).toBeVisible()
     await expect(save).toBeHidden()
+
+    await page.reload()
+    for (const day of ['Пн', 'Ср', 'Пт']) {
+      await expect(days.getByRole('button', { name: day })).toHaveAttribute('aria-pressed', 'false')
+    }
+    for (const day of ['Вт', 'Чт']) {
+      await expect(days.getByRole('button', { name: day })).toHaveAttribute('aria-pressed', 'true')
+    }
   })
 
-  test('links a parent by the card button', async ({ page, api }) => {
+  test('links a parent by the card button', async ({ page }) => {
     const childrenPage = new ChildrenPage(page)
-    await api.mockUpdateChild(petya)
     await childrenPage.goto()
     const card = childrenPage.card('Иванов Петя')
 
@@ -104,32 +107,72 @@ test.describe('Children', () => {
     await expect(card).toContainText('Папа Ани')
     await expect(card.getByRole('combobox')).toBeHidden()
 
-    const request = page.waitForRequest('/api/children/1')
     await card.getByRole('button', { name: 'Сохранить' }).click()
-
-    expect((await request).postDataJSON().parent_ids).toEqual([101, 102])
     await expect(page.getByText('Сохранено')).toBeVisible()
     await expect(card.getByRole('button', { name: 'Сохранить' })).toBeHidden()
+
+    await page.reload()
     await expect(card).toContainText('Мама Пети')
     await expect(card).toContainText('Папа Ани')
   })
 
-  test('unlinks the last parent by the card button', async ({ page, api }) => {
+  test('unlinks the last parent by the card button', async ({ page }) => {
     const childrenPage = new ChildrenPage(page)
-    await api.mockUpdateChild(petya)
     await childrenPage.goto()
     const card = childrenPage.card('Иванов Петя')
 
     await card.getByRole('button', { name: 'Отвязать Мама Пети' }).click()
     await expect(card).toContainText('Родители не привязаны')
 
-    const request = page.waitForRequest('/api/children/1')
     await card.getByRole('button', { name: 'Сохранить' }).click()
-
-    expect((await request).postDataJSON().parent_ids).toEqual([])
     await expect(page.getByText('Сохранено')).toBeVisible()
     await expect(card.getByRole('button', { name: 'Сохранить' })).toBeHidden()
+
+    await page.reload()
     await expect(card).toContainText('Родители не привязаны')
+  })
+
+  test('a parent can be linked to several children', async ({ page }) => {
+    const childrenPage = new ChildrenPage(page)
+    await childrenPage.goto()
+    const card = childrenPage.card('Козлова Аня Олеговна')
+
+    await card.getByRole('combobox').selectOption('Мама Пети')
+    await card.getByRole('button', { name: 'Сохранить' }).click()
+    await expect(page.getByText('Сохранено')).toBeVisible()
+
+    await page.reload()
+    await expect(card).toContainText('Мама Пети')
+    await expect(childrenPage.card('Иванов Петя')).toContainText('Мама Пети')
+  })
+
+  test('a parent who left the group is shown by id and can be unlinked', async ({ page, backend }) => {
+    const childrenPage = new ChildrenPage(page)
+    await backend.updateChild(1, { parent_ids: [999] })
+    await childrenPage.goto()
+    const card = childrenPage.card('Козлова Аня Олеговна')
+
+    await expect(card).toContainText('не в группе (id 999)')
+    await card.getByRole('button', { name: 'Отвязать не в группе (id 999)' }).click()
+    await card.getByRole('button', { name: 'Сохранить' }).click()
+    await expect(page.getByText('Сохранено')).toBeVisible()
+
+    await page.reload()
+    await expect(card).toContainText('Родители не привязаны')
+  })
+
+  test('deactivates and activates by the card button', async ({ page }) => {
+    const childrenPage = new ChildrenPage(page)
+    await childrenPage.goto()
+
+    await childrenPage.card('Иванов Петя').getByRole('button', { name: 'Деактивировать' }).click()
+    await expect(childrenPage.names()).toHaveText(['Козлова Аня Олеговна'])
+    await childrenPage.inactive.getByText('Деактивированные · 2').click()
+    await childrenPage.card('Иванов Петя').getByRole('button', { name: 'Активировать' }).click()
+
+    await page.reload()
+    await expect(childrenPage.names()).toHaveText(['Иванов Петя', 'Козлова Аня Олеговна'])
+    await expect(childrenPage.inactive).toContainText('Деактивированные · 1')
   })
 
   test('cancel restores the card', async ({ page }) => {
