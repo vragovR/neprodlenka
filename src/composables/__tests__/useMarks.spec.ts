@@ -13,6 +13,11 @@ describe('nextStatus', () => {
     expect(nextStatus('pending', 'pending')).toBe('present')
     expect(nextStatus('absent', 'pending')).toBe('pending')
   })
+
+  it('toggles only absent on future days', () => {
+    expect(nextStatus(null, null, true)).toBe('absent')
+    expect(nextStatus('absent', null, true)).toBeNull()
+  })
 })
 
 describe('useMarks', () => {

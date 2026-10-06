@@ -178,6 +178,25 @@ func TestTickPublishCopiesDayClubs(t *testing.T) {
 	}
 }
 
+func TestTickKeepsAbsentMarkedAhead(t *testing.T) {
+	t.Parallel()
+	a, b := setup(t)
+	a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES ('2026-09-26', 2, 'absent', 0)`)
+
+	tick(t, a, b, at(26, 7, 0))
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"pending", 0}, 2: {"absent", 0}}; !equal(got, want) {
+		t.Errorf("after publish: marks = %v, want %v", got, want)
+	}
+	if sent := a.MAX.Sent(); len(sent) != 1 || !strings.Contains(sent[0].Text, "Козлова Аня") {
+		t.Errorf("sent = %v, want one message with Козлова Аня", sent)
+	}
+
+	tick(t, a, b, at(26, 9, 0))
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"present", 13000}, 2: {"absent", 0}}; !equal(got, want) {
+		t.Errorf("after close: marks = %v, want %v", got, want)
+	}
+}
+
 func TestTickNoPublish(t *testing.T) {
 	t.Parallel()
 

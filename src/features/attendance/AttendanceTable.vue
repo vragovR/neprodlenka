@@ -65,7 +65,7 @@ function dayTitle(day: AttendanceDay) {
           <td v-for="d in days" :key="d.date" :class="['day', { today: d.date === now, off: !d.school }]">
             <AttendanceCell
               :status="status(d.date, r.child_id)"
-              :disabled="!d.school || d.date > now"
+              :disabled="!d.school"
               :blank="!d.school"
               @toggle="emit('toggle', d.date, r.child_id)"
             />

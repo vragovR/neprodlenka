@@ -371,12 +371,22 @@ func TestAttendanceGet(t *testing.T) {
 	for _, r := range a.Children {
 		ids = append(ids, r.ChildID)
 	}
-	if !equalIDs(ids, 1, 3) {
-		t.Errorf("children = %v, want 1 3", ids)
+	if !equalIDs(ids, 1, 2, 3) {
+		t.Errorf("children = %v, want 1 2 3", ids)
 	}
 	if a.Children[0].Marks["2026-09-25"] != "present" || a.Children[0].Total != 25000 ||
-		a.Children[1].Marks["2026-09-25"] != "absent" || a.Children[1].Active {
+		len(a.Children[1].Marks) != 0 || !a.Children[1].Active ||
+		a.Children[2].Marks["2026-09-25"] != "absent" || a.Children[2].Active {
 		t.Errorf("children = %+v", a.Children)
+	}
+
+	past := decode[attendance](t, e.do(t, "GET", "/api/attendance/2026-08", "", c).Body.String())
+	ids = nil
+	for _, r := range past.Children {
+		ids = append(ids, r.ChildID)
+	}
+	if !equalIDs(ids, 1, 4) {
+		t.Errorf("past month children = %v, want 1 4", ids)
 	}
 }
 
@@ -391,6 +401,21 @@ func TestAttendanceUnpublishedDaySavesOnlyGivenCells(t *testing.T) {
 	}
 	if got := dayMarks(t, e, "2026-09-23"); got != "" {
 		t.Errorf("untouched day marks = %s, want none", got)
+	}
+}
+
+func TestAttendanceFutureAbsent(t *testing.T) {
+	t.Parallel()
+	e, c := attendanceEnv(t)
+
+	putAttendance(t, e, c, `{"marks":[{"date":"2026-09-29","child_id":2,"status":"absent"}]}`)
+	if got, want := dayMarks(t, e, "2026-09-29"), "2:absent:0"; got != want {
+		t.Errorf("marks = %s, want %s", got, want)
+	}
+
+	putAttendance(t, e, c, `{"marks":[{"date":"2026-09-29","child_id":2,"status":null}]}`)
+	if got := dayMarks(t, e, "2026-09-29"); got != "" {
+		t.Errorf("after clearing: marks = %s, want none", got)
 	}
 }
 
@@ -450,7 +475,7 @@ func TestAttendancePayments(t *testing.T) {
 	if edit.MessageID != "m9" || !strings.Contains(edit.Message.Text, "🟢 <b>Козлова Аня</b>: 1 день × 150\u00a0₽ = 150\u00a0₽") {
 		t.Errorf("edit %s:\n%s", edit.MessageID, edit.Message.Text)
 	}
-	if a := getAttendance(t, e, c); len(a.Children) != 1 || a.Children[0].ChildID != 2 || !a.Children[0].Paid {
+	if a := getAttendance(t, e, c); len(a.Children) != 2 || a.Children[0].Paid || !a.Children[1].Paid {
 		t.Errorf("children = %+v, want only 2 paid", a.Children)
 	}
 
@@ -458,7 +483,7 @@ func TestAttendancePayments(t *testing.T) {
 	if edit := e.a.MAX.NextEdit(t); !strings.Contains(edit.Message.Text, "🔴 <b>Козлова Аня</b>: 1 день × 150\u00a0₽ = 150\u00a0₽") {
 		t.Errorf("after unpaid:\n%s", edit.Message.Text)
 	}
-	if a := getAttendance(t, e, c); a.Children[0].Paid {
+	if a := getAttendance(t, e, c); a.Children[0].Paid || a.Children[1].Paid {
 		t.Errorf("children = %+v, want none paid", a.Children)
 	}
 

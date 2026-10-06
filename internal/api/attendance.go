@@ -82,9 +82,10 @@ func (h *handler) getAttendance(w http.ResponseWriter, r *http.Request) {
 		totals[m.ChildID] += m.Price
 	}
 
+	upcoming := month.AddDate(0, 1, 0).After(clock.Today(h.now()))
 	rows := []attendanceRowJSON{}
 	for _, c := range children {
-		if len(byChild[c.ID]) == 0 {
+		if len(byChild[c.ID]) == 0 && !(upcoming && c.Active) {
 			continue
 		}
 		childMarks := byChild[c.ID]
@@ -158,9 +159,6 @@ func (h *handler) putAttendance(w http.ResponseWriter, r *http.Request) {
 		case err != nil || date.Year() != month.Year() || date.Month() != month.Month():
 			writeError(w, http.StatusBadRequest, "validation", "Дата "+m.Date+" не из месяца "+month.Format("2006-01"))
 			return
-		case date.After(today):
-			writeError(w, http.StatusBadRequest, "validation", "Нельзя отмечать будущие дни")
-			return
 		case slices.Contains(noSchool, m.Date):
 			writeError(w, http.StatusBadRequest, "validation", "Неучебный день "+m.Date)
 			return
@@ -173,6 +171,10 @@ func (h *handler) putAttendance(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusBadRequest, "validation", "Статус — present, absent или null")
 				return
 			}
+		}
+		if status == store.Present && date.After(today) {
+			writeError(w, http.StatusBadRequest, "validation", "На будущие дни — только «не обедает»")
+			return
 		}
 		changes = append(changes, store.MarkChange{Date: date, ChildID: m.ChildID, Status: status})
 

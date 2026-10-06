@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AttendanceDay, AttendanceRow, Status } from '@/api/types'
-import { dayOfMonth, formatMoney, fullName, plural, today } from '@/utils/format'
+import { dayOfMonth, formatMoney, fullName, plural } from '@/utils/format'
 import ChildCalendar from '@/components/ChildCalendar.vue'
 import PaidToggle from './PaidToggle.vue'
 
@@ -12,8 +12,7 @@ const { days, rows, status, paid } = defineProps<{
 }>()
 const emit = defineEmits<{ toggle: [date: string, childId: number]; togglePaid: [childId: number] }>()
 
-const now = today()
-const editable = (date: string) => !!days[dayOfMonth(date) - 1]?.school && date <= now
+const editable = (date: string) => !!days[dayOfMonth(date) - 1]?.school
 const meals = (r: AttendanceRow) => Object.values(r.marks).filter((s) => s === 'present').length
 </script>
 
