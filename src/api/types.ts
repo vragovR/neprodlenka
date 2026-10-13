@@ -10,6 +10,7 @@ export interface Child extends PersonName {
   id: number
   price: number
   active: boolean
+  weekdays: number[]
   parent_ids: number[]
   clubs: Club[]
 }
@@ -34,7 +35,7 @@ export interface ChildInput extends PersonName {
   price: number
 }
 
-export type ChildPatch = Partial<ChildInput & Pick<Child, 'active' | 'parent_ids' | 'clubs'>>
+export type ChildPatch = Partial<ChildInput & Pick<Child, 'active' | 'weekdays' | 'parent_ids' | 'clubs'>>
 
 export interface Month {
   month: string
@@ -52,6 +53,7 @@ export interface AttendanceDay {
 export interface AttendanceRow extends PersonName {
   child_id: number
   active: boolean
+  weekdays: number[]
   marks: Record<string, Status>
   total: number
   paid: boolean

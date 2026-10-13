@@ -23,6 +23,19 @@ test.describe('Month', () => {
     await expect(monthPage.saveButton).toBeDisabled()
   })
 
+  test('dims days the child does not attend', async ({ page }) => {
+    const monthPage = new MonthPage(page)
+    await monthPage.goto(month)
+
+    await expect(monthPage.cell('Козлова', 29).getByTitle('Нет отметки')).toBeVisible()
+    await expect(monthPage.cell('Козлова', 30).locator('..')).toHaveAttribute('title', 'Не ходит в этот день')
+    await expect(monthPage.cell('Козлова', 30).getByTitle('Нет отметки')).toBeHidden()
+    await expect(monthPage.cell('Иванов', 30).getByTitle('Нет отметки')).toBeVisible()
+
+    await monthPage.cell('Козлова', 30).click()
+    await expect(monthPage.cell('Козлова', 30).getByTitle('Не обедает')).toBeVisible()
+  })
+
   test('saves only changed marks', async ({ page, api }) => {
     const monthPage = new MonthPage(page)
     await api.mockPutAttendance(month)

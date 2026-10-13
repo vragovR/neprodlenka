@@ -23,6 +23,7 @@ type attendanceRowJSON struct {
 	FirstName  string            `json:"first_name"`
 	MiddleName string            `json:"middle_name"`
 	Active     bool              `json:"active"`
+	Weekdays   []int             `json:"weekdays"`
 	Marks      map[string]string `json:"marks"`
 	Total      int64             `json:"total"`
 	Paid       bool              `json:"paid"`
@@ -98,6 +99,7 @@ func (h *handler) getAttendance(w http.ResponseWriter, r *http.Request) {
 			FirstName:  c.FirstName,
 			MiddleName: c.MiddleName,
 			Active:     c.Active,
+			Weekdays:   c.Weekdays,
 			Marks:      childMarks,
 			Total:      totals[c.ID],
 			Paid:       paid[c.ID],

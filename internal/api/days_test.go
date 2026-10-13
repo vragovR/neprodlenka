@@ -134,6 +134,20 @@ func TestDayPastShowsOnlyMarked(t *testing.T) {
 	}
 }
 
+func TestDayUpcomingSkipsChildOutsideWeekdays(t *testing.T) {
+	t.Parallel()
+	e, c := attendanceEnv(t)
+	e.a.Exec(t, `UPDATE children SET weekdays = 10 WHERE id = 2`)
+
+	d := getDay(t, e, c, "2026-09-26")
+	if !slices.Equal(dayIDs(d), []int64{1}) || d.Message == nil || strings.Contains(d.Message.Text, "Козлова") {
+		t.Errorf("saturday: children = %v, message %+v", dayIDs(d), d.Message)
+	}
+	if d := getDay(t, e, c, "2026-09-29"); !slices.Equal(dayIDs(d), []int64{1, 2}) {
+		t.Errorf("tuesday: children = %v, want 1 2", dayIDs(d))
+	}
+}
+
 func TestDayErrors(t *testing.T) {
 	t.Parallel()
 	e, c := attendanceEnv(t)

@@ -25,6 +25,7 @@ func webhookEnv(t *testing.T) *env {
 	e.a.Exec(t, `INSERT INTO children (id, last_name, first_name) VALUES (1, 'Иванов', 'Петя')`)
 	e.a.Exec(t, `INSERT INTO child_parents (user_id, child_id) VALUES (101, 1)`)
 	e.a.Exec(t, `INSERT INTO daily_posts (date, status, message_id) VALUES ('2026-09-26', 'open', 'm1')`)
+	e.a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES ('2026-09-26', 1, 'pending', 0)`)
 	return e
 }
 
@@ -74,8 +75,8 @@ func TestWebhookRejected(t *testing.T) {
 			t.Errorf("%s: status = %d, want %d", tt.name, w.Code, tt.want)
 		}
 	}
-	if got := status(t, e); got != "" {
-		t.Errorf("status = %q, want no mark", got)
+	if got := status(t, e); got != "pending" {
+		t.Errorf("status = %q, want pending", got)
 	}
 	if got := e.a.MAX.Answered(); len(got) != 0 {
 		t.Errorf("answered = %v, want none", got)

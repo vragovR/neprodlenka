@@ -10,6 +10,7 @@ function row(
   price: number,
   special: Record<string, Status>,
   paid = false,
+  weekdays = [1, 2, 3, 4, 5],
 ): AttendanceRow {
   const marks = Object.fromEntries(published.map((d) => [d, special[d] ?? 'present']))
   const present = Object.values(marks).filter((s) => s === 'present').length
@@ -19,6 +20,7 @@ function row(
     first_name: firstName,
     middle_name: '',
     active: true,
+    weekdays,
     marks,
     total: present * price,
     paid,
@@ -35,7 +37,7 @@ export const attendance: Attendance = {
   })),
   children: [
     row(1, 'Иванов', 'Петя', 13000, { '2026-09-10': 'absent', [today]: 'pending' }),
-    row(2, 'Козлова', 'Аня', 15000, { [today]: 'absent' }, true),
+    row(2, 'Козлова', 'Аня', 15000, { [today]: 'absent' }, true, [2, 4]),
   ],
   message: { text: 'Питание за сентябрь 2026.', buttons: [] },
   sent: false,

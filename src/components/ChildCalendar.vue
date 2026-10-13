@@ -3,11 +3,12 @@ import type { RouteLocationRaw } from 'vue-router'
 import type { ReportDay, Status } from '@/api/types'
 import MealCalendar from './MealCalendar.vue'
 
-const { name, days, status, editable, to } = defineProps<{
+const { name, days, status, editable, rest, to } = defineProps<{
   name: string
   days: ReportDay[]
   status: (date: string) => Status | null
   editable?: (date: string) => boolean
+  rest?: (date: string) => boolean
   to?: RouteLocationRaw
 }>()
 const emit = defineEmits<{ toggle: [date: string] }>()
@@ -23,7 +24,7 @@ const emit = defineEmits<{ toggle: [date: string] }>()
         <div class="muted sub"><slot /></div>
       </div>
     </header>
-    <MealCalendar :days="days" :status="status" :editable="editable" @toggle="(date) => emit('toggle', date)" />
+    <MealCalendar :days="days" :status="status" :editable="editable" :rest="rest" @toggle="(date) => emit('toggle', date)" />
   </article>
 </template>
 

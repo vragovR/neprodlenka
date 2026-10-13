@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, useId, useTemplateRef } from 'vue'
-import { weekdaysShort } from '@/utils/format'
 import type { ClubGroup } from './clubs'
+import WeekdayPicker from './WeekdayPicker.vue'
 
 const {
   group,
@@ -17,10 +17,6 @@ const nameInput = useTemplateRef('nameInput')
 
 onMounted(() => nameInput.value?.focus())
 
-const toggleDay = (day: number) => {
-  form.weekdays = form.weekdays.includes(day) ? form.weekdays.filter((d) => d !== day) : [...form.weekdays, day]
-}
-
 const ready = () => !!form.name.trim() && !!form.start && (!withDays || !!form.weekdays.length)
 
 function submit() {
@@ -28,7 +24,7 @@ function submit() {
     return
   }
   const name = form.name.trim()
-  emit('submit', { name, start: form.start, weekdays: [...form.weekdays].sort((a, b) => a - b) })
+  emit('submit', { name, start: form.start, weekdays: [...form.weekdays] })
 }
 </script>
 
@@ -46,18 +42,7 @@ function submit() {
     <datalist :id="listId">
       <option v-for="n in names" :key="n" :value="n" />
     </datalist>
-    <span v-if="withDays" class="days" role="group" aria-label="Дни недели">
-      <button
-        v-for="(d, i) in weekdaysShort"
-        :key="d"
-        type="button"
-        :class="['day', { on: form.weekdays.includes(i + 1) }]"
-        :aria-pressed="form.weekdays.includes(i + 1)"
-        @click="toggleDay(i + 1)"
-      >
-        {{ d }}
-      </button>
-    </span>
+    <WeekdayPicker v-if="withDays" v-model="form.weekdays" />
     <input v-model="form.start" type="time" class="field" aria-label="Время начала" required />
     <button type="submit" class="btn primary" :disabled="!ready()">
       {{ submitLabel }}
@@ -98,29 +83,6 @@ function submit() {
   max-width: 100%;
 }
 
-.days {
-  display: inline-flex;
-  gap: 4px;
-}
-
-.day {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  color: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.day.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-
 .btn {
   min-width: 30px;
   padding: 0 10px;
@@ -143,11 +105,6 @@ function submit() {
   .btn {
     height: 36px;
     font-size: 16px;
-  }
-
-  .day {
-    width: 36px;
-    height: 36px;
   }
 }
 </style>

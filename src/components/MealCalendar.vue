@@ -3,10 +3,11 @@ import { computed } from 'vue'
 import type { ReportDay, Status } from '@/api/types'
 import { dayOfMonth, today, weekday, weekdaysShort } from '@/utils/format'
 
-const { days, status, editable, large = false } = defineProps<{
+const { days, status, editable, rest, large = false } = defineProps<{
   days: ReportDay[]
   status: (date: string) => Status | null
   editable?: (date: string) => boolean
+  rest?: (date: string) => boolean
   large?: boolean
 }>()
 const emit = defineEmits<{ toggle: [date: string] }>()
@@ -20,8 +21,13 @@ function dayTitle(d: ReportDay) {
   if (s) {
     return titles[s]
   }
-  return d.school ? 'Нет отметки' : 'Неучебный день'
+  if (!d.school) {
+    return 'Неучебный день'
+  }
+  return rest?.(d.date) ? 'Не ходит в этот день' : 'Нет отметки'
 }
+
+const empty = (d: ReportDay) => (!d.school ? 'off' : rest?.(d.date) ? 'rest' : 'none')
 </script>
 
 <template>
@@ -32,7 +38,7 @@ function dayTitle(d: ReportDay) {
       v-for="d in days"
       :key="d.date"
       type="button"
-      :class="['day', status(d.date) ?? (d.school ? 'none' : 'off'), { today: d.date === now }]"
+      :class="['day', status(d.date) ?? empty(d), { today: d.date === now }]"
       :title="dayTitle(d)"
       :disabled="!editable?.(d.date)"
       @click="emit('toggle', d.date)"
@@ -112,6 +118,10 @@ function dayTitle(d: ReportDay) {
   color: var(--warning);
   background: var(--warning-soft);
   font-weight: 700;
+}
+
+.rest {
+  color: var(--text-muted);
 }
 
 .off {

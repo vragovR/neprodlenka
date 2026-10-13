@@ -7,6 +7,7 @@ export const petya: Child = {
   middle_name: '',
   price: 13000,
   active: true,
+  weekdays: [1, 2, 3, 4, 5],
   parent_ids: [101],
   clubs: [
     { weekday: 1, start: '15:00', name: 'Шахматы' },
@@ -21,6 +22,7 @@ export const anya: Child = {
   middle_name: 'Олеговна',
   price: 15000,
   active: true,
+  weekdays: [1, 2, 3, 4, 5],
   parent_ids: [],
   clubs: [],
 }
@@ -32,6 +34,7 @@ export const kolya: Child = {
   middle_name: '',
   price: 13000,
   active: false,
+  weekdays: [1, 2, 3, 4, 5],
   parent_ids: [],
   clubs: [],
 }

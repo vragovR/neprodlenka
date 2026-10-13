@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AttendanceDay, AttendanceRow, Status } from '@/api/types'
-import { dayOfMonth, formatMoney, fullName, plural } from '@/utils/format'
+import { dayOfMonth, formatMoney, fullName, plural, weekday } from '@/utils/format'
 import ChildCalendar from '@/components/ChildCalendar.vue'
 import PaidToggle from './PaidToggle.vue'
 
@@ -13,6 +13,7 @@ const { days, rows, status, paid } = defineProps<{
 const emit = defineEmits<{ toggle: [date: string, childId: number]; togglePaid: [childId: number] }>()
 
 const editable = (date: string) => !!days[dayOfMonth(date) - 1]?.school
+const rest = (r: AttendanceRow, date: string) => !r.weekdays.includes(weekday(date) + 1)
 const meals = (r: AttendanceRow) => Object.values(r.marks).filter((s) => s === 'present').length
 </script>
 
@@ -25,6 +26,7 @@ const meals = (r: AttendanceRow) => Object.values(r.marks).filter((s) => s === '
       :days="days"
       :status="(date) => status(date, r.child_id)"
       :editable="editable"
+      :rest="(date) => rest(r, date)"
       @toggle="(date) => emit('toggle', date, r.child_id)"
     >
       {{ meals(r) }} {{ plural(meals(r), ['обед', 'обеда', 'обедов']) }} ·

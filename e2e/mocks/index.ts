@@ -47,7 +47,7 @@ export class ApiMock {
 
   async mockAddChild(id: number): Promise<void> {
     await this.on('POST', '/children', (route) =>
-      json(route, { ...route.request().postDataJSON(), id, active: true, parent_ids: [], clubs: [] }, 201),
+      json(route, { ...route.request().postDataJSON(), id, active: true, weekdays: [1, 2, 3, 4, 5], parent_ids: [], clubs: [] }, 201),
     )
   }
 

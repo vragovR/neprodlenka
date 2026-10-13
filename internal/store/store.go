@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+var ErrNotAttending = errors.New("child does not attend this day")
+
 type Status string
 
 const (
@@ -148,15 +150,15 @@ func (s *Store) ClosePost(ctx context.Context, date time.Time) error {
 	d := date.Format(time.DateOnly)
 	_, err = tx.ExecContext(ctx, `
 		DELETE FROM attendance WHERE date = ? AND status = 'pending'
-		AND child_id IN (SELECT id FROM children WHERE active = 0)`, d)
+		AND child_id IN (SELECT id FROM children WHERE active = 0 OR weekdays & ? = 0)`, d, weekdayBit(date))
 	if err != nil {
 		return fmt.Errorf("close post: %w", err)
 	}
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO attendance (date, child_id, status, price)
-		SELECT ?, id, 'present', price FROM children WHERE active = 1
+		SELECT ?, id, 'present', price FROM children WHERE active = 1 AND weekdays & ? <> 0
 		ON CONFLICT (date, child_id) DO UPDATE SET status = excluded.status, price = excluded.price
-		WHERE attendance.status = 'pending'`, d)
+		WHERE attendance.status = 'pending'`, d, weekdayBit(date))
 	if err != nil {
 		return fmt.Errorf("close post: %w", err)
 	}
@@ -216,8 +218,8 @@ func (s *Store) CreatePost(ctx context.Context, date time.Time) (bool, error) {
 	}
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO attendance (date, child_id, status, price)
-		SELECT ?, id, 'pending', 0 FROM children WHERE active = 1
-		ON CONFLICT (date, child_id) DO NOTHING`, d)
+		SELECT ?, id, 'pending', 0 FROM children WHERE active = 1 AND weekdays & ? <> 0
+		ON CONFLICT (date, child_id) DO NOTHING`, d, weekdayBit(date))
 	if err != nil {
 		return false, fmt.Errorf("create post: %w", err)
 	}
@@ -225,7 +227,7 @@ func (s *Store) CreatePost(ctx context.Context, date time.Time) (bool, error) {
 		INSERT INTO day_clubs (date, child_id, start, name)
 		SELECT ?1, cc.child_id, cc.start, cc.name
 		FROM child_clubs cc JOIN children c ON c.id = cc.child_id
-		WHERE c.active = 1 AND cc.weekday = ?2`, d, Weekday(date))
+		WHERE c.active = 1 AND c.weekdays & ?3 <> 0 AND cc.weekday = ?2`, d, Weekday(date), weekdayBit(date))
 	if err != nil {
 		return false, fmt.Errorf("create post: %w", err)
 	}
@@ -237,6 +239,10 @@ func (s *Store) CreatePost(ctx context.Context, date time.Time) (bool, error) {
 
 func Weekday(date time.Time) int {
 	return (int(date.Weekday())+6)%7 + 1
+}
+
+func weekdayBit(date time.Time) int {
+	return 1 << (Weekday(date) - 1)
 }
 
 func (s *Store) SetPostMessageID(ctx context.Context, date time.Time, messageID string) error {
@@ -262,35 +268,46 @@ func (s *Store) ToggleAbsent(ctx context.Context, messageID string, userID int64
 		total, absent int
 	)
 	err = tx.QueryRowContext(ctx, `
-		SELECT p.date, COUNT(*), COUNT(a.child_id)
+		SELECT p.date, COUNT(*), SUM(a.status = 'absent')
 		FROM daily_posts p, child_parents cp
 		JOIN children c ON c.id = cp.child_id
-		LEFT JOIN attendance a ON a.child_id = c.id AND a.date = p.date AND a.status = 'absent'
+		JOIN attendance a ON a.child_id = c.id AND a.date = p.date
 		WHERE p.message_id = ?1 AND p.status = 'open' AND cp.user_id = ?2 AND c.active = 1
 		GROUP BY p.date`,
 		messageID, userID,
 	).Scan(&date, &total, &absent)
 	if errors.Is(err, sql.ErrNoRows) {
+		var linked bool
+		err = tx.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM daily_posts p, child_parents cp
+				JOIN children c ON c.id = cp.child_id
+				WHERE p.message_id = ?1 AND p.status = 'open' AND cp.user_id = ?2 AND c.active = 1)`,
+			messageID, userID,
+		).Scan(&linked)
+		if err != nil {
+			return time.Time{}, false, false, fmt.Errorf("toggle absent: %w", err)
+		}
+		if linked {
+			return time.Time{}, false, false, ErrNotAttending
+		}
 		return time.Time{}, false, false, nil
 	}
 	if err != nil {
 		return time.Time{}, false, false, fmt.Errorf("toggle absent: %w", err)
 	}
 
-	query := `
-		INSERT INTO attendance (date, child_id, status, price)
-		SELECT ?1, c.id, 'absent', 0
-		FROM child_parents cp JOIN children c ON c.id = cp.child_id
-		WHERE cp.user_id = ?2 AND c.active = 1
-		ON CONFLICT (date, child_id) DO UPDATE SET status = excluded.status, price = excluded.price`
+	status := Absent
 	if absent == total {
-		query = `
-			UPDATE attendance SET status = 'pending', price = 0
-			WHERE date = ?1 AND child_id IN (
-				SELECT c.id FROM child_parents cp JOIN children c ON c.id = cp.child_id
-				WHERE cp.user_id = ?2 AND c.active = 1)`
+		status = Pending
 	}
-	if _, err := tx.ExecContext(ctx, query, date, userID); err != nil {
+	_, err = tx.ExecContext(ctx, `
+		UPDATE attendance SET status = ?3, price = 0
+		WHERE date = ?1 AND child_id IN (
+			SELECT c.id FROM child_parents cp JOIN children c ON c.id = cp.child_id
+			WHERE cp.user_id = ?2 AND c.active = 1)`,
+		date, userID, status)
+	if err != nil {
 		return time.Time{}, false, false, fmt.Errorf("toggle absent: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -309,8 +326,8 @@ func (s *Store) DayChildren(ctx context.Context, date time.Time) ([]DayChild, er
 		SELECT c.id, c.last_name, c.first_name, c.middle_name, c.active, a.status, a.price
 		FROM children c
 		LEFT JOIN attendance a ON a.child_id = c.id AND a.date = ?
-		WHERE c.active = 1 OR a.status IS NOT NULL`,
-		date.Format(time.DateOnly),
+		WHERE (c.active = 1 AND c.weekdays & ? <> 0) OR a.status IS NOT NULL`,
+		date.Format(time.DateOnly), weekdayBit(date),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get day children: %w", err)

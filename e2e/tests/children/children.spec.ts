@@ -52,7 +52,7 @@ test.describe('Children', () => {
     await expect(card.getByTitle('Изменить цену')).toHaveText('150 ₽ / день')
     await card.getByRole('button', { name: '+ Кружок' }).click()
     await card.getByLabel('Название кружка').fill('Робототехника')
-    await card.getByRole('button', { name: 'Пт' }).click()
+    await card.getByRole('group', { name: 'Дни недели' }).getByRole('button', { name: 'Пт' }).click()
     await card.getByLabel('Время начала').fill('14:30')
     await card.getByRole('button', { name: 'Добавить' }).click()
     await expect(card).toContainText('Робототехника · Пт 14:30')
@@ -65,6 +65,33 @@ test.describe('Children', () => {
     expect(body.clubs).toEqual([...petya.clubs, { name: 'Робототехника', start: '14:30', weekday: 5 }])
     await expect(page.getByText('Сохранено')).toBeVisible()
     await expect(card.getByRole('button', { name: 'Сохранить' })).toBeHidden()
+  })
+
+  test('sets attendance weekdays', async ({ page, api }) => {
+    const childrenPage = new ChildrenPage(page)
+    await api.mockUpdateChild(petya)
+    await childrenPage.goto()
+    const card = childrenPage.card('Иванов Петя')
+    const days = card.getByRole('group', { name: 'Дни посещения' })
+    const save = card.getByRole('button', { name: 'Сохранить' })
+
+    await expect(days.getByRole('button', { name: 'Сб' })).toHaveAttribute('aria-pressed', 'false')
+    for (const day of ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']) {
+      await days.getByRole('button', { name: day }).click()
+    }
+    await expect(save).toBeDisabled()
+    await expect(card).toContainText('Выберите хотя бы один день посещения')
+
+    await days.getByRole('button', { name: 'Вт' }).click()
+    await days.getByRole('button', { name: 'Чт' }).click()
+    await expect(days.getByRole('button', { name: 'Чт' })).toHaveAttribute('aria-pressed', 'true')
+
+    const request = page.waitForRequest('/api/children/1')
+    await save.click()
+
+    expect((await request).postDataJSON().weekdays).toEqual([2, 4])
+    await expect(page.getByText('Сохранено')).toBeVisible()
+    await expect(save).toBeHidden()
   })
 
   test('links a parent by the card button', async ({ page, api }) => {

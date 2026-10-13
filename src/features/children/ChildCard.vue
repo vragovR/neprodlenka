@@ -12,6 +12,7 @@ import ClubsEditor from './ClubsEditor.vue'
 import ParentChips from './ParentChips.vue'
 import ParentPicker from './ParentPicker.vue'
 import PriceInput from './PriceInput.vue'
+import WeekdayPicker from './WeekdayPicker.vue'
 
 const { child, members, clubNames } = defineProps<{
   child: Child
@@ -25,6 +26,7 @@ const fromChild = (c: Child) => ({
   first_name: c.first_name,
   middle_name: c.middle_name,
   price: c.price as number | null,
+  weekdays: [...c.weekdays],
   parent_ids: [...c.parent_ids],
   clubs: c.clubs.map((club) => ({ ...club })),
 })
@@ -106,6 +108,7 @@ async function save() {
       first_name: draft.first_name.trim(),
       middle_name: draft.middle_name.trim(),
       price: draft.price,
+      weekdays: draft.weekdays,
       parent_ids: draft.parent_ids,
       clubs: draft.clubs,
     })
@@ -153,6 +156,10 @@ const icon = {
         <PriceInput v-model="draft.price" :error="touched && draft.price === null ? 'Укажите цену' : ''" />
         <span class="muted hint">Цена за день. Новая цена действует только на новые отметки.</span>
       </div>
+      <div class="weekdays">
+        <span class="muted hint">Ходит</span>
+        <WeekdayPicker v-model="draft.weekdays" label="Дни посещения" />
+      </div>
       <div class="parents">
         <ParentChips
           :ids="draft.parent_ids"
@@ -170,13 +177,14 @@ const icon = {
           size="sm"
           variant="primary"
           :loading="saving"
-          :disabled="clubsEditing"
+          :disabled="clubsEditing || !draft.weekdays.length"
           @mousedown.prevent
           @click="save"
         >
           Сохранить
         </UiButton>
         <span v-if="clubsEditing" class="muted hint">Сначала нажмите «Добавить» или «Готово» в строке кружка</span>
+        <span v-else-if="!draft.weekdays.length" class="muted hint">Выберите хотя бы один день посещения</span>
       </div>
     </div>
     <div class="actions">
@@ -281,6 +289,7 @@ const icon = {
   align-items: center;
 }
 
+.weekdays,
 .parents {
   display: flex;
   flex-wrap: wrap;

@@ -29,6 +29,7 @@ type childJSON struct {
 	MiddleName string     `json:"middle_name"`
 	Price      int64      `json:"price"`
 	Active     bool       `json:"active"`
+	Weekdays   []int      `json:"weekdays"`
 	ParentIDs  []int64    `json:"parent_ids"`
 	Clubs      []clubJSON `json:"clubs"`
 }
@@ -56,6 +57,7 @@ func toChildJSON(c store.Child) childJSON {
 		MiddleName: c.MiddleName,
 		Price:      c.Price,
 		Active:     c.Active,
+		Weekdays:   c.Weekdays,
 		ParentIDs:  c.ParentIDs,
 		Clubs:      clubs,
 	}
@@ -134,11 +136,21 @@ func (h *handler) updateChild(w http.ResponseWriter, r *http.Request) {
 		MiddleName *string     `json:"middle_name"`
 		Price      *int64      `json:"price"`
 		Active     *bool       `json:"active"`
+		Weekdays   *[]int      `json:"weekdays"`
 		ParentIDs  *[]int64    `json:"parent_ids"`
 		Clubs      *[]clubJSON `json:"clubs"`
 	}
 	if !readJSON(w, r, &req) {
 		return
+	}
+
+	var weekdays []int
+	if req.Weekdays != nil {
+		weekdays, err = normalizeWeekdays(*req.Weekdays)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "validation", err.Error())
+			return
+		}
 	}
 
 	var clubs []store.Club
@@ -167,6 +179,9 @@ func (h *handler) updateChild(w http.ResponseWriter, r *http.Request) {
 		if req.Active != nil {
 			c.Active = *req.Active
 		}
+		if req.Weekdays != nil {
+			c.Weekdays = weekdays
+		}
 		if req.ParentIDs != nil {
 			ids := slices.Clone(*req.ParentIDs)
 			slices.Sort(ids)
@@ -192,6 +207,19 @@ func (h *handler) updateChild(w http.ResponseWriter, r *http.Request) {
 
 	h.redrawToday(r)
 	writeJSON(w, http.StatusOK, toChildJSON(c))
+}
+
+func normalizeWeekdays(in []int) ([]int, error) {
+	weekdays := slices.Clone(in)
+	slices.Sort(weekdays)
+	weekdays = slices.Compact(weekdays)
+	switch {
+	case len(weekdays) == 0:
+		return nil, errors.New("Выберите хотя бы один день посещения")
+	case weekdays[0] < 1 || weekdays[len(weekdays)-1] > 7:
+		return nil, errors.New("Неверный день недели")
+	}
+	return weekdays, nil
 }
 
 func normalizeClubs(in []clubJSON) ([]store.Club, error) {

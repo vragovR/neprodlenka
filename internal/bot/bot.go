@@ -197,6 +197,10 @@ func (b *Bot) toggle(ctx context.Context, cb Callback) (string, error) {
 	}
 
 	date, absent, ok, err := b.store.ToggleAbsent(ctx, cb.MessageID, cb.UserID)
+	if errors.Is(err, store.ErrNotAttending) {
+		b.log.Info("callback ignored: child does not attend", zap.Int64("user_id", cb.UserID), zap.String("message_id", cb.MessageID))
+		return "Отметка не принята: в этот день ваш ребёнок не ходит в школу", nil
+	}
 	if err != nil {
 		return "Не удалось сохранить отметку, попробуйте ещё раз", fmt.Errorf("handle callback: %w", err)
 	}

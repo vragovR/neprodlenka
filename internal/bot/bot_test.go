@@ -20,10 +20,10 @@ func setup(t *testing.T) (*apptest.App, *bot.Bot) {
 	t.Helper()
 	var b *bot.Bot
 	a := apptest.New(t, &b)
-	a.Exec(t, `INSERT INTO children (id, last_name, first_name, price, active) VALUES
-		(1, 'Иванов', 'Петя', 13000, 1),
-		(2, 'Козлова', 'Аня', 15000, 1),
-		(3, 'Сидоров', 'Коля', 13000, 0)`)
+	a.Exec(t, `INSERT INTO children (id, last_name, first_name, price, active, weekdays) VALUES
+		(1, 'Иванов', 'Петя', 13000, 1, 127),
+		(2, 'Козлова', 'Аня', 15000, 1, 127),
+		(3, 'Сидоров', 'Коля', 13000, 0, 127)`)
 	a.Exec(t, `INSERT INTO child_parents (user_id, child_id) VALUES (101, 1), (102, 1), (201, 2), (301, 3)`)
 	return a, b
 }
@@ -194,6 +194,56 @@ func TestTickKeepsAbsentMarkedAhead(t *testing.T) {
 	tick(t, a, b, at(26, 9, 0))
 	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"present", 13000}, 2: {"absent", 0}}; !equal(got, want) {
 		t.Errorf("after close: marks = %v, want %v", got, want)
+	}
+}
+
+func TestTickSkipsChildOutsideWeekdays(t *testing.T) {
+	t.Parallel()
+	a, b := setup(t)
+	a.Exec(t, `UPDATE children SET weekdays = 10 WHERE id = 2`)
+	a.Exec(t, `INSERT INTO child_clubs (child_id, weekday, start, name) VALUES (2, 6, '12:30', 'Танцы')`)
+
+	tick(t, a, b, at(26, 7, 0))
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"pending", 0}}; !equal(got, want) {
+		t.Errorf("after publish: marks = %v, want %v", got, want)
+	}
+	if got := dayClubs(t, a, "2026-09-26"); len(got) != 0 {
+		t.Errorf("day clubs = %v, want none", got)
+	}
+	if text := a.MAX.Sent()[0].Text; strings.Contains(text, "Козлова") {
+		t.Errorf("text:\n%s", text)
+	}
+
+	tick(t, a, b, at(26, 9, 0))
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"present", 13000}}; !equal(got, want) {
+		t.Errorf("after close: marks = %v, want %v", got, want)
+	}
+}
+
+func TestTickCloseDropsPendingOutsideWeekdays(t *testing.T) {
+	t.Parallel()
+	a, b := setup(t)
+	tick(t, a, b, at(26, 7, 0))
+	a.Exec(t, `UPDATE children SET weekdays = 10 WHERE id = 2`)
+
+	tick(t, a, b, at(26, 9, 0))
+
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"present", 13000}}; !equal(got, want) {
+		t.Errorf("marks = %v, want %v", got, want)
+	}
+}
+
+func TestTickKeepsMarkOutsideWeekdays(t *testing.T) {
+	t.Parallel()
+	a, b := setup(t)
+	a.Exec(t, `UPDATE children SET weekdays = 10 WHERE id = 2`)
+
+	tick(t, a, b, at(26, 7, 0))
+	a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES ('2026-09-26', 2, 'present', 15000)`)
+	tick(t, a, b, at(26, 9, 0))
+
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"present", 13000}, 2: {"present", 15000}}; !equal(got, want) {
+		t.Errorf("marks = %v, want %v", got, want)
 	}
 }
 
@@ -419,10 +469,46 @@ func TestPressMarksAllChildrenOfParent(t *testing.T) {
 	}
 }
 
+func TestPressSkipsChildOutsideWeekdays(t *testing.T) {
+	t.Parallel()
+	a, b := setup(t)
+	a.Exec(t, `INSERT INTO child_parents (user_id, child_id) VALUES (101, 2)`)
+	a.Exec(t, `UPDATE children SET weekdays = 10 WHERE id = 2`)
+	tick(t, a, b, at(26, 7, 0))
+
+	press(t, b, "c1", 101, "absent")
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"absent", 0}}; !equal(got, want) {
+		t.Errorf("marks = %v, want %v", got, want)
+	}
+
+	press(t, b, "c2", 101, "absent")
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"pending", 0}}; !equal(got, want) {
+		t.Errorf("after unmark: marks = %v, want %v", got, want)
+	}
+}
+
+func TestPressChildNotAttending(t *testing.T) {
+	t.Parallel()
+	a, b := setup(t)
+	a.Exec(t, `UPDATE children SET weekdays = 10 WHERE id = 2`)
+	tick(t, a, b, at(26, 7, 0))
+
+	press(t, b, "c1", 201, "absent")
+
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"pending", 0}}; !equal(got, want) {
+		t.Errorf("marks = %v, want %v", got, want)
+	}
+	want := apptest.Answer{CallbackID: "c1", Notification: "Отметка не принята: в этот день ваш ребёнок не ходит в школу"}
+	if got := a.MAX.Answered(); len(got) != 1 || got[0] != want {
+		t.Errorf("answered = %v, want %v", got, want)
+	}
+}
+
 func TestPressOpenPostAnyTime(t *testing.T) {
 	t.Parallel()
 	a, b := setup(t)
 	a.Exec(t, `INSERT INTO daily_posts (date, status, message_id) VALUES ('2026-09-20', 'open', 'm1')`)
+	a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES ('2026-09-20', 1, 'pending', 0)`)
 	a.SetNow(at(26, 23, 0))
 
 	press(t, b, "c1", 101, "absent")

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
+	"time"
 
 	"neprodlenka/internal/names"
 )
@@ -18,8 +20,31 @@ type Child struct {
 	MiddleName string
 	Price      int64
 	Active     bool
+	Weekdays   []int
 	ParentIDs  []int64
 	Clubs      []Club
+}
+
+func (c Child) Attends(date time.Time) bool {
+	return slices.Contains(c.Weekdays, Weekday(date))
+}
+
+func weekdaysMask(weekdays []int) int {
+	mask := 0
+	for _, d := range weekdays {
+		mask |= 1 << (d - 1)
+	}
+	return mask
+}
+
+func maskWeekdays(mask int) []int {
+	weekdays := []int{}
+	for d := 1; d <= 7; d++ {
+		if mask>>(d-1)&1 == 1 {
+			weekdays = append(weekdays, d)
+		}
+	}
+	return weekdays
 }
 
 type Club struct {
@@ -30,7 +55,7 @@ type Club struct {
 
 func (s *Store) Children(ctx context.Context) ([]Child, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, last_name, first_name, middle_name, price, active FROM children`)
+		`SELECT id, last_name, first_name, middle_name, price, active, weekdays FROM children`)
 	if err != nil {
 		return nil, fmt.Errorf("list children: %w", err)
 	}
@@ -40,9 +65,11 @@ func (s *Store) Children(ctx context.Context) ([]Child, error) {
 	index := map[int64]int{}
 	for rows.Next() {
 		c := Child{ParentIDs: []int64{}, Clubs: []Club{}}
-		if err := rows.Scan(&c.ID, &c.LastName, &c.FirstName, &c.MiddleName, &c.Price, &c.Active); err != nil {
+		var weekdays int
+		if err := rows.Scan(&c.ID, &c.LastName, &c.FirstName, &c.MiddleName, &c.Price, &c.Active, &weekdays); err != nil {
 			return nil, fmt.Errorf("scan child: %w", err)
 		}
+		c.Weekdays = maskWeekdays(weekdays)
 		index[c.ID] = len(children)
 		children = append(children, c)
 	}
@@ -91,27 +118,31 @@ func (s *Store) Children(ctx context.Context) ([]Child, error) {
 
 func (s *Store) ChildByID(ctx context.Context, id int64) (Child, bool, error) {
 	c := Child{ID: id, ParentIDs: []int64{}, Clubs: []Club{}}
+	var weekdays int
 	err := s.db.QueryRowContext(ctx,
-		`SELECT last_name, first_name, middle_name, price, active FROM children WHERE id = ?`, id,
-	).Scan(&c.LastName, &c.FirstName, &c.MiddleName, &c.Price, &c.Active)
+		`SELECT last_name, first_name, middle_name, price, active, weekdays FROM children WHERE id = ?`, id,
+	).Scan(&c.LastName, &c.FirstName, &c.MiddleName, &c.Price, &c.Active, &weekdays)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Child{}, false, nil
 	}
 	if err != nil {
 		return Child{}, false, fmt.Errorf("get child: %w", err)
 	}
+	c.Weekdays = maskWeekdays(weekdays)
 	return c, true, nil
 }
 
 func (s *Store) AddChild(ctx context.Context, c Child) (Child, error) {
+	var weekdays int
 	err := s.db.QueryRowContext(ctx, `
 		INSERT INTO children (last_name, first_name, middle_name, price) VALUES (?, ?, ?, ?)
-		RETURNING id, active`,
+		RETURNING id, active, weekdays`,
 		c.LastName, c.FirstName, c.MiddleName, c.Price,
-	).Scan(&c.ID, &c.Active)
+	).Scan(&c.ID, &c.Active, &weekdays)
 	if err != nil {
 		return Child{}, fmt.Errorf("add child: %w", err)
 	}
+	c.Weekdays = maskWeekdays(weekdays)
 	c.ParentIDs = []int64{}
 	c.Clubs = []Club{}
 	return c, nil
@@ -125,15 +156,17 @@ func (s *Store) UpdateChild(ctx context.Context, id int64, update func(*Child) e
 	defer tx.Rollback()
 
 	c := Child{ID: id, ParentIDs: []int64{}, Clubs: []Club{}}
+	var weekdays int
 	err = tx.QueryRowContext(ctx,
-		`SELECT last_name, first_name, middle_name, price, active FROM children WHERE id = ?`, id,
-	).Scan(&c.LastName, &c.FirstName, &c.MiddleName, &c.Price, &c.Active)
+		`SELECT last_name, first_name, middle_name, price, active, weekdays FROM children WHERE id = ?`, id,
+	).Scan(&c.LastName, &c.FirstName, &c.MiddleName, &c.Price, &c.Active, &weekdays)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Child{}, ErrNotFound
 	}
 	if err != nil {
 		return Child{}, fmt.Errorf("get child: %w", err)
 	}
+	c.Weekdays = maskWeekdays(weekdays)
 
 	rows, err := tx.QueryContext(ctx, `SELECT user_id FROM child_parents WHERE child_id = ? ORDER BY user_id`, id)
 	if err != nil {
@@ -175,9 +208,9 @@ func (s *Store) UpdateChild(ctx context.Context, id int64, update func(*Child) e
 	}
 
 	_, err = tx.ExecContext(ctx, `
-		UPDATE children SET last_name = ?, first_name = ?, middle_name = ?, price = ?, active = ?
+		UPDATE children SET last_name = ?, first_name = ?, middle_name = ?, price = ?, active = ?, weekdays = ?
 		WHERE id = ?`,
-		c.LastName, c.FirstName, c.MiddleName, c.Price, c.Active, id)
+		c.LastName, c.FirstName, c.MiddleName, c.Price, c.Active, weekdaysMask(c.Weekdays), id)
 	if err != nil {
 		return Child{}, fmt.Errorf("update child: %w", err)
 	}

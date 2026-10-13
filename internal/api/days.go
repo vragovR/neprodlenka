@@ -92,7 +92,10 @@ func (h *handler) getDay(w http.ResponseWriter, r *http.Request) {
 	for _, c := range children {
 		status := statuses[c.ID]
 		childClubs := clubs[c.ID]
-		if status == "" && !(upcoming && c.Active) && (!published || len(childClubs) == 0) {
+		marked := status != ""
+		expected := upcoming && c.Active && c.Attends(date)
+		withClubs := published && len(childClubs) > 0
+		if !marked && !expected && !withClubs {
 			continue
 		}
 		if childClubs == nil {
@@ -106,7 +109,7 @@ func (h *handler) getDay(w http.ResponseWriter, r *http.Request) {
 			Active:     c.Active,
 			Clubs:      childClubs,
 		}
-		if status != "" {
+		if marked {
 			row.Status = new(string(status))
 		}
 		rows = append(rows, row)

@@ -14,6 +14,7 @@ const { days, rows, status, paid } = defineProps<{
 const emit = defineEmits<{ toggle: [date: string, childId: number]; togglePaid: [childId: number] }>()
 
 const now = today()
+const rest = (r: AttendanceRow, date: string) => !r.weekdays.includes(weekday(date) + 1)
 const scroll = useTemplateRef('scroll')
 
 watch(
@@ -62,11 +63,16 @@ function dayTitle(day: AttendanceDay) {
             <span class="short">{{ shortName(r) }}</span>
             <span v-if="!r.active" class="inactive muted">деактивирован</span>
           </th>
-          <td v-for="d in days" :key="d.date" :class="['day', { today: d.date === now, off: !d.school }]">
+          <td
+            v-for="d in days"
+            :key="d.date"
+            :class="['day', { today: d.date === now, off: !d.school }]"
+            :title="d.school && rest(r, d.date) ? 'Не ходит в этот день' : undefined"
+          >
             <AttendanceCell
               :status="status(d.date, r.child_id)"
               :disabled="!d.school"
-              :blank="!d.school"
+              :blank="!d.school || rest(r, d.date)"
               @toggle="emit('toggle', d.date, r.child_id)"
             />
           </td>

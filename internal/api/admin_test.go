@@ -36,6 +36,7 @@ type child struct {
 	MiddleName string  `json:"middle_name"`
 	Price      int64   `json:"price"`
 	Active     bool    `json:"active"`
+	Weekdays   []int   `json:"weekdays"`
 	ParentIDs  []int64 `json:"parent_ids"`
 	Clubs      []club  `json:"clubs"`
 }
@@ -83,7 +84,8 @@ func TestChildren(t *testing.T) {
 		t.Fatalf("add: status = %d, body %s", w.Code, w.Body)
 	}
 	petya := decode[child](t, w.Body.String())
-	if petya.LastName != "Семёнов" || petya.Price != 13000 || !petya.Active || len(petya.ParentIDs) != 0 || petya.Clubs == nil || len(petya.Clubs) != 0 {
+	if petya.LastName != "Семёнов" || petya.Price != 13000 || !petya.Active || !slices.Equal(petya.Weekdays, []int{1, 2, 3, 4, 5}) ||
+		len(petya.ParentIDs) != 0 || petya.Clubs == nil || len(petya.Clubs) != 0 {
 		t.Errorf("added = %+v", petya)
 	}
 
@@ -116,11 +118,16 @@ func TestChildren(t *testing.T) {
 		t.Errorf("patched clubs = %+v", got)
 	}
 
+	w = e.do(t, "PATCH", "/api/children/"+itoa(petya.ID), `{"weekdays":[4,2,4]}`, c)
+	if got := decode[child](t, w.Body.String()); w.Code != http.StatusOK || !slices.Equal(got.Weekdays, []int{2, 4}) || got.Price != 14000 {
+		t.Errorf("patch weekdays: status = %d, child %+v", w.Code, got)
+	}
+
 	w = e.do(t, "PATCH", "/api/children/"+itoa(petya.ID), `{"middle_name":" Олегович ","active":false}`, c)
 	if w.Code != http.StatusOK {
 		t.Fatalf("deactivate: status = %d, body %s", w.Code, w.Body)
 	}
-	if got := decode[child](t, w.Body.String()); got.MiddleName != "Олегович" || got.Active || got.Price != 14000 ||
+	if got := decode[child](t, w.Body.String()); got.MiddleName != "Олегович" || got.Active || got.Price != 14000 || !slices.Equal(got.Weekdays, []int{2, 4}) ||
 		!equalIDs(got.ParentIDs, 101, 102) || !slices.Equal(got.Clubs, wantClubs) {
 		t.Errorf("deactivated = %+v", got)
 	}
@@ -176,6 +183,8 @@ func TestChildErrors(t *testing.T) {
 		{"long club name", "PATCH", "/api/children/2", `{"clubs":[{"weekday":1,"start":"14:00","name":"` + strings.Repeat("я", 101) + `"}]}`, http.StatusBadRequest},
 		{"bad club weekday", "PATCH", "/api/children/2", `{"clubs":[{"weekday":8,"start":"14:00","name":"Шахматы"}]}`, http.StatusBadRequest},
 		{"bad club start", "PATCH", "/api/children/2", `{"clubs":[{"weekday":1,"start":"25:00","name":"Шахматы"}]}`, http.StatusBadRequest},
+		{"no weekdays", "PATCH", "/api/children/2", `{"weekdays":[]}`, http.StatusBadRequest},
+		{"bad weekday", "PATCH", "/api/children/2", `{"weekdays":[2,8]}`, http.StatusBadRequest},
 		{"unknown child", "PATCH", "/api/children/99", `{"price":1}`, http.StatusNotFound},
 		{"bad id", "PATCH", "/api/children/abc", `{"price":1}`, http.StatusNotFound},
 	}
@@ -290,11 +299,11 @@ type attendance struct {
 func attendanceEnv(t *testing.T) (*env, *http.Cookie) {
 	t.Helper()
 	e, c := adminEnv(t)
-	e.a.Exec(t, `INSERT INTO children (id, last_name, first_name, price, active) VALUES
-		(1, 'Иванов', 'Петя', 13000, 1),
-		(2, 'Козлова', 'Аня', 15000, 1),
-		(3, 'Сидоров', 'Коля', 13000, 0),
-		(4, 'Орлов', 'Гриша', 13000, 0)`)
+	e.a.Exec(t, `INSERT INTO children (id, last_name, first_name, price, active, weekdays) VALUES
+		(1, 'Иванов', 'Петя', 13000, 1, 127),
+		(2, 'Козлова', 'Аня', 15000, 1, 127),
+		(3, 'Сидоров', 'Коля', 13000, 0, 127),
+		(4, 'Орлов', 'Гриша', 13000, 0, 127)`)
 	return e, c
 }
 
