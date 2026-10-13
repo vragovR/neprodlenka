@@ -263,38 +263,34 @@ func (s *Store) ToggleAbsent(ctx context.Context, messageID string, userID int64
 	}
 	defer tx.Rollback()
 
-	var (
-		date          string
-		total, absent int
-	)
-	err = tx.QueryRowContext(ctx, `
-		SELECT p.date, COUNT(*), SUM(a.status = 'absent')
-		FROM daily_posts p, child_parents cp
-		JOIN children c ON c.id = cp.child_id
-		JOIN attendance a ON a.child_id = c.id AND a.date = p.date
-		WHERE p.message_id = ?1 AND p.status = 'open' AND cp.user_id = ?2 AND c.active = 1
-		GROUP BY p.date`,
-		messageID, userID,
-	).Scan(&date, &total, &absent)
+	var date string
+	err = tx.QueryRowContext(ctx,
+		`SELECT date FROM daily_posts WHERE message_id = ? AND status = 'open'`, messageID,
+	).Scan(&date)
 	if errors.Is(err, sql.ErrNoRows) {
-		var linked bool
-		err = tx.QueryRowContext(ctx, `
-			SELECT EXISTS (
-				SELECT 1 FROM daily_posts p, child_parents cp
-				JOIN children c ON c.id = cp.child_id
-				WHERE p.message_id = ?1 AND p.status = 'open' AND cp.user_id = ?2 AND c.active = 1)`,
-			messageID, userID,
-		).Scan(&linked)
-		if err != nil {
-			return time.Time{}, false, false, fmt.Errorf("toggle absent: %w", err)
-		}
-		if linked {
-			return time.Time{}, false, false, ErrNotAttending
-		}
 		return time.Time{}, false, false, nil
 	}
 	if err != nil {
 		return time.Time{}, false, false, fmt.Errorf("toggle absent: %w", err)
+	}
+
+	var linked, total, absent int
+	err = tx.QueryRowContext(ctx, `
+		SELECT COUNT(*), COUNT(a.status), COALESCE(SUM(a.status = 'absent'), 0)
+		FROM child_parents cp
+		JOIN children c ON c.id = cp.child_id
+		LEFT JOIN attendance a ON a.child_id = c.id AND a.date = ?1
+		WHERE cp.user_id = ?2 AND c.active = 1`,
+		date, userID,
+	).Scan(&linked, &total, &absent)
+	if err != nil {
+		return time.Time{}, false, false, fmt.Errorf("toggle absent: %w", err)
+	}
+	if linked == 0 {
+		return time.Time{}, false, false, nil
+	}
+	if total == 0 {
+		return time.Time{}, false, false, fmt.Errorf("toggle absent: %w", ErrNotAttending)
 	}
 
 	status := Absent
@@ -316,7 +312,7 @@ func (s *Store) ToggleAbsent(ctx context.Context, messageID string, userID int64
 
 	d, err := parseDate(date)
 	if err != nil {
-		return time.Time{}, false, false, err
+		return time.Time{}, false, false, fmt.Errorf("toggle absent: %w", err)
 	}
 	return d, absent != total, true, nil
 }

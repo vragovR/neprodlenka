@@ -504,6 +504,26 @@ func TestPressChildNotAttending(t *testing.T) {
 	}
 }
 
+func TestPressMarksChildMarkedAfterPost(t *testing.T) {
+	t.Parallel()
+	a, b := setup(t)
+	a.Exec(t, `UPDATE children SET active = 0 WHERE id = 2`)
+	tick(t, a, b, at(26, 7, 0))
+	a.Exec(t, `INSERT INTO child_parents (user_id, child_id) VALUES (101, 2)`)
+	a.Exec(t, `UPDATE children SET active = 1 WHERE id = 2`)
+	a.Exec(t, `INSERT INTO attendance (date, child_id, status, price) VALUES ('2026-09-26', 2, 'present', 15000)`)
+
+	press(t, b, "c1", 101, "absent")
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"absent", 0}, 2: {"absent", 0}}; !equal(got, want) {
+		t.Errorf("marks = %v, want %v", got, want)
+	}
+
+	press(t, b, "c2", 101, "absent")
+	if got, want := marks(t, a, "2026-09-26"), map[int]mark{1: {"pending", 0}, 2: {"pending", 0}}; !equal(got, want) {
+		t.Errorf("after unmark: marks = %v, want %v", got, want)
+	}
+}
+
 func TestPressOpenPostAnyTime(t *testing.T) {
 	t.Parallel()
 	a, b := setup(t)
