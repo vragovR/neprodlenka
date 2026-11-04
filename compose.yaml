@@ -1,0 +1,48 @@
+name: neprodlenka
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    env_file: .env
+    volumes:
+      - ./data:/data
+      - go-build-cache:/root/.cache/go-build
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./backend
+          target: /app
+          ignore:
+            - bin/
+        - action: rebuild
+          path: ./backend/go.mod
+        - action: rebuild
+          path: ./backend/go.sum
+
+  frontend:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm ci && npm run dev"
+    volumes:
+      - ./frontend:/app
+      - node-modules:/app/node_modules
+
+  nginx:
+    image: nginx:1-alpine
+    volumes:
+      - ./frontend/nginx/dev.conf:/etc/nginx/conf.d/default.conf:ro
+    labels:
+      dev.orbstack.domains: neprodlenka.local
+      dev.orbstack.http-port: "80"
+      traefik.enable: "true"
+      traefik.http.routers.neprodlenka.rule: Host(`neprodlenka.test`)
+      traefik.http.services.neprodlenka.loadbalancer.server.port: "80"
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  go-build-cache:
+  node-modules:

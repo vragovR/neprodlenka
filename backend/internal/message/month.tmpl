@@ -1,0 +1,12 @@
+Питание за {{ .Month }}.
+Проверьте, пожалуйста, свою сумму и оплатите.
+{{ range .Children }}
+{{ if .Paid }}🟢{{ else }}🔴{{ end }} <b>{{ .Name }}</b>: {{ .Days }}{{ with .Price }} × {{ money . }}{{ end }} = {{ money .Total }}
+{{- end }}
+
+Итого по классу: {{ money .Total }} ({{ .Meals }}).
+<a href="{{ .URL }}">Открыть отчёт за месяц</a>
+
+Оплата на карту Сбербанк:
+<b>{{ .Payment.Card }}</b>
+Получатель: {{ .Payment.Recipient }}

@@ -1,0 +1,139 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - gocritic
+    - staticcheck
+    - unused
+    - errcheck
+    - errorlint
+    - errname
+  settings:
+    gocritic:
+      settings:
+        hugeParam:
+          sizeThreshold: 1024
+        rangeValCopy:
+          sizeThreshold: 1024
+      disable-all: true
+      enabled-checks:
+        - appendAssign
+        - appendCombine
+        - argOrder
+        - assignOp
+        - badCall
+        - badCond
+        - badLock
+        - badRegexp
+        - badSorting
+        - badSyncOnceFunc
+        - boolExprSimplify
+        - builtinShadow
+        - builtinShadowDecl
+        - captLocal
+        - caseOrder
+        - codegenComment
+        - commentFormatting
+        - commentedOutCode
+        - commentedOutImport
+        - defaultCaseOrder
+        - deferInLoop
+        - deferUnlambda
+        - deprecatedComment
+        - docStub
+        - dupArg
+        - dupBranchBody
+        - dupCase
+        - dupImport
+        - dupSubExpr
+        - dynamicFmtString
+        - elseif
+        - emptyDecl
+        - emptyFallthrough
+        - emptyStringTest
+        - equalFold
+        - evalOrder
+        - exitAfterDefer
+        - exposedSyncMutex
+        - externalErrorReassign
+        - filepathJoin
+        - flagDeref
+        - flagName
+        - hexLiteral
+        - httpNoBody
+        - hugeParam
+        - ifElseChain
+        - indexAlloc
+        - initClause
+        - mapKey
+        - methodExprCall
+        - nestingReduce
+        - newDeref
+        - nilValReturn
+        - octalLiteral
+        - offBy1
+        - preferDecodeRune
+        - preferFilepathJoin
+        - preferFprint
+        - preferStringWriter
+        - preferWriteByte
+        - ptrToRefParam
+        - rangeAppendAll
+        - rangeExprCopy
+        - rangeValCopy
+        - redundantSprint
+        - regexpMust
+        - regexpPattern
+        - regexpSimplify
+        - returnAfterHttpError
+        - singleCaseSwitch
+        - sliceClear
+        - sloppyLen
+        - sloppyTypeAssert
+        - sortSlice
+        - sprintfQuotedString
+        - sqlQuery
+        - stringConcatSimplify
+        - stringXbytes
+        - stringsCompare
+        - switchTrue
+        - syncMapLoadAndDelete
+        - timeExprSimplify
+        - todoCommentWithoutDetail
+        - tooManyResultsChecker
+        - truncateCmp
+        - typeAssertChain
+        - typeSwitchVar
+        - typeUnparen
+        - uncheckedInlineErr
+        - underef
+        - unlabelStmt
+        - unlambda
+        - unnecessaryDefer
+        - unslice
+        - valSwap
+        - weakCond
+        - whyNoLint
+        - wrapperFunc
+        - yodaStyleExpr
+    staticcheck:
+      checks: ["all", "-ST1000", "-ST1003", '-SA1029']
+
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+    errorlint:
+      errorf: true
+      errorf-multi: true
+      asserts: true
+      comparison: true
+    unused:
+      exported-fields-are-used: false
+
+issues:
+  max-issues-per-linter: 1000
+  max-same-issues: 1000

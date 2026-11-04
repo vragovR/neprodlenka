@@ -1,0 +1,39 @@
+{
+  "name": "neprodlenka",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "npm run type-check && npm run build-only --",
+    "preview": "vp preview",
+    "test:unit": "vp test",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "build-only": "vp build",
+    "type-check": "vue-tsc --build",
+    "lint": "vp check --fix"
+  },
+  "dependencies": {
+    "vue": "^3.5.42",
+    "vue-router": "^5.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tsconfig/node24": "^24.0.5",
+    "@types/node": "^24.13.4",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/tsconfig": "^0.9.1",
+    "typescript": "~6.0.0",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0",
+    "vite-plugin-vue-devtools": "^8.2.1",
+    "vite-plus": "1.5.0",
+    "vue-tsc": "^3.3.11"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0"
+  },
+  "engines": {
+    "node": "^22.18.0 || ^24.12.0 || >=26.0.0"
+  }
+}
