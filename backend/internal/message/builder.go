@@ -43,13 +43,15 @@ func (b *Builder) BuildDay(ctx context.Context, date time.Time, closed, marked b
 	if err != nil {
 		return Message{}, err
 	}
-	clubs, err := b.store.ScheduleClubs(ctx, date)
+	clubs, err := b.store.PlannedClubs(ctx, date)
 	if err != nil {
 		return Message{}, err
 	}
-	clubs = slices.DeleteFunc(clubs, func(club store.DayClub) bool {
-		return !slices.ContainsFunc(children, func(c store.DayChild) bool { return c.ID == club.ChildID })
-	})
+	if marked {
+		clubs = slices.DeleteFunc(clubs, func(club store.DayClub) bool {
+			return !slices.ContainsFunc(children, func(c store.DayChild) bool { return c.ID == club.ChildID })
+		})
+	}
 	return b.buildDay(ctx, date, closed, children, clubs)
 }
 

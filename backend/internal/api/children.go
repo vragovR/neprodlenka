@@ -241,18 +241,26 @@ func normalizeClubs(in []clubJSON) ([]store.Club, error) {
 }
 
 func normalizeClub(start, name string) (string, string, error) {
-	name = strings.TrimSpace(name)
-	switch {
-	case name == "":
-		return "", "", errors.New("укажите название кружка")
-	case utf8.RuneCountInString(name) > maxClubNameLen:
-		return "", "", errors.New("слишком длинное название кружка")
+	name, err := normalizeClubName(name)
+	if err != nil {
+		return "", "", err
 	}
 	t, err := time.Parse(clubStartLayout, strings.TrimSpace(start))
 	if err != nil {
 		return "", "", errors.New("укажите время начала кружка в формате ЧЧ:ММ")
 	}
 	return t.Format(clubStartLayout), name, nil
+}
+
+func normalizeClubName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	switch {
+	case name == "":
+		return "", errors.New("укажите название кружка")
+	case utf8.RuneCountInString(name) > maxClubNameLen:
+		return "", errors.New("слишком длинное название кружка")
+	}
+	return name, nil
 }
 
 func validateChild(c store.Child) error {

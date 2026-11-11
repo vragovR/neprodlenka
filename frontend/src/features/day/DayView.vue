@@ -12,6 +12,7 @@ import UiModal from '@/components/ui/UiModal.vue'
 import MessagePreview from '@/components/MessagePreview.vue'
 import UiSpinner from '@/components/ui/UiSpinner.vue'
 import DayChildCard from './DayChildCard.vue'
+import DayClubChanges from './DayClubChanges.vue'
 import DaySwitcher from './DaySwitcher.vue'
 
 const route = useRoute()
@@ -101,30 +102,39 @@ onUnmounted(() => window.removeEventListener('beforeunload', warnUnload))
     </UiEmpty>
     <div v-else-if="!data" class="center"><UiSpinner /></div>
     <UiEmpty v-else-if="!data.school" title="Неучебный день" text="В этот день сообщение в группу не отправляется." />
-    <UiEmpty v-else-if="!marked" title="Отметок нет" :text="emptyText">
-      <UiButton v-if="date < today()" @click="router.push({ name: 'month', params: { month: monthOf(date) } })"> Открыть месяц </UiButton>
-    </UiEmpty>
     <template v-else>
-      <div class="toolbar">
-        <p class="muted hint">
-          <template v-if="!data.published"> Сообщения за этот день не было: кружки показаны по расписанию, править их нельзя. </template>
-          <template v-else-if="data.closed">Отметка закрыта.</template>
-          <template v-else>Отметка идёт: «Не отметился» при закрытии станет «Обедает».</template>
-          {{ summary }}
-        </p>
-      </div>
-      <div class="list">
-        <DayChildCard
-          v-for="c in data.children"
-          :key="`${data.date}:${c.child_id}`"
-          :date="data.date"
-          :row="c"
-          :names="names"
-          :marks-disabled="marksDisabled"
-          :clubs-readonly="!data.published"
-          @saved="run"
-          @dirty="setDirty(c.child_id, $event)" />
-      </div>
+      <template v-if="data.changes_editable">
+        <p v-if="!marked" class="muted hint">{{ emptyText }}</p>
+        <DayClubChanges :key="data.date" :date="data.date" :changes="data.changes" :reloading="loading" @saved="run" />
+      </template>
+      <UiEmpty v-else-if="!marked" title="Отметок нет" :text="emptyText">
+        <UiButton v-if="date < today()" @click="router.push({ name: 'month', params: { month: monthOf(date) } })"> Открыть месяц </UiButton>
+      </UiEmpty>
+
+      <template v-if="marked">
+        <div class="toolbar">
+          <p class="muted hint">
+            <template v-if="!data.published">
+              Сообщения за этот день не было: кружки показаны по расписанию с учётом разовых изменений, в карточках их править нельзя.
+            </template>
+            <template v-else-if="data.closed">Отметка закрыта.</template>
+            <template v-else>Отметка идёт: «Не отметился» при закрытии станет «Обедает».</template>
+            {{ summary }}
+          </p>
+        </div>
+        <div class="list">
+          <DayChildCard
+            v-for="c in data.children"
+            :key="`${data.date}:${c.child_id}`"
+            :date="data.date"
+            :row="c"
+            :names="names"
+            :marks-disabled="marksDisabled"
+            :clubs-readonly="!data.published"
+            @saved="run"
+            @dirty="setDirty(c.child_id, $event)" />
+        </div>
+      </template>
     </template>
     <UiModal v-model:open="messageOpen" title="Сообщение дня">
       <MessagePreview v-if="data?.message" :message="data.message" :sent="data.published" :dirty="dirty" />

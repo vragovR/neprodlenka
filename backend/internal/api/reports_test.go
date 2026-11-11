@@ -2,8 +2,10 @@ package api_test
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestReport(t *testing.T) {
@@ -89,12 +91,10 @@ func TestChildReport(t *testing.T) {
 			Absent   int       `json:"absent"`
 			Total    int64     `json:"total"`
 		} `json:"child"`
-		Price   int64  `json:"price"`
-		PrevUID string `json:"prev_uid"`
-		NextUID string `json:"next_uid"`
+		Price int64 `json:"price"`
 	}
 
-	e.a.Exec(t, `INSERT INTO report_months (month, uid) VALUES ('2026-08', 'rep-8'), ('2026-09', 'rep-9'), ('2026-10', 'rep-10')`)
+	e.a.Exec(t, `INSERT INTO report_months (month, uid) VALUES ('2026-09', 'rep-9'), ('2026-10', 'rep-10')`)
 
 	w := e.do(t, "GET", "/api/reports/rep-9/children/1", "", nil)
 	if w.Code != http.StatusOK {
@@ -102,12 +102,12 @@ func TestChildReport(t *testing.T) {
 	}
 	r := decode[childReport](t, w.Body.String())
 	if len(r.Days) != 30 || r.Days[4].School || r.Child.ID != 1 || r.Child.LastName != "Иванов" ||
-		r.Child.Present != 2 || r.Child.Absent != 1 || r.Child.Total != 26000 || r.Price != 13000 || r.PrevUID != "rep-8" || r.NextUID != "rep-10" {
+		r.Child.Present != 2 || r.Child.Absent != 1 || r.Child.Total != 26000 || r.Price != 13000 {
 		t.Errorf("report = %+v", r)
 	}
 
 	r = decode[childReport](t, e.do(t, "GET", "/api/reports/rep-10/children/4", "", nil).Body.String())
-	if r.Child.LastName != "Орлов" || len(r.Child.Marks) != 31 || r.Child.Present != 0 || r.Price != 13000 || r.PrevUID != "rep-9" || r.NextUID != "" {
+	if r.Child.LastName != "Орлов" || len(r.Child.Marks) != 31 || r.Child.Present != 0 || r.Price != 13000 {
 		t.Errorf("inactive child = %+v", r)
 	}
 
@@ -119,5 +119,47 @@ func TestChildReport(t *testing.T) {
 		if w := e.do(t, "GET", path, "", c); w.Code != code {
 			t.Errorf("%s: status = %d, want %d", path, w.Code, code)
 		}
+	}
+}
+
+func TestChildReportClubs(t *testing.T) {
+	t.Parallel()
+	e, _ := attendanceEnv(t)
+	e.a.SetNow(time.Date(2026, 9, 10, 12, 0, 0, 0, time.Local))
+	e.a.Exec(t, `UPDATE children SET weekdays = 5 WHERE id = 1`)
+	e.a.Exec(t, `INSERT INTO child_clubs (child_id, weekday, start, name) VALUES
+		(1, 3, '12:00', 'Танцы'),
+		(1, 1, '14:00', 'Шахматы'),
+		(1, 2, '15:00', 'Футбол'),
+		(2, 1, '13:00', 'Лепка')`)
+	e.a.Exec(t, `INSERT INTO club_changes (date, child_id, name, start) VALUES
+		('2026-09-09', 1, 'Танцы', '13:00'),
+		('2026-09-14', 1, 'Шахматы', '15:00'),
+		('2026-09-10', 1, 'Танцы', NULL),
+		('2026-09-14', 2, 'Лепка', NULL)`)
+	e.a.Exec(t, `INSERT INTO report_months (month, uid) VALUES ('2026-09', 'rep-9')`)
+
+	type club struct {
+		Weekday int    `json:"weekday"`
+		Start   string `json:"start"`
+		Name    string `json:"name"`
+	}
+	type change struct {
+		Date  string  `json:"date"`
+		Name  string  `json:"name"`
+		Start *string `json:"start"`
+	}
+	r := decode[struct {
+		Clubs       []club   `json:"clubs"`
+		ClubChanges []change `json:"club_changes"`
+	}](t, e.do(t, "GET", "/api/reports/rep-9/children/1", "", nil).Body.String())
+
+	if want := []club{{1, "14:00", "Шахматы"}, {3, "12:00", "Танцы"}}; !slices.Equal(r.Clubs, want) {
+		t.Errorf("clubs = %+v, want %+v", r.Clubs, want)
+	}
+	if len(r.ClubChanges) != 2 ||
+		r.ClubChanges[0].Date != "2026-09-10" || r.ClubChanges[0].Name != "Танцы" || r.ClubChanges[0].Start != nil ||
+		r.ClubChanges[1].Date != "2026-09-14" || r.ClubChanges[1].Name != "Шахматы" || r.ClubChanges[1].Start == nil || *r.ClubChanges[1].Start != "15:00" {
+		t.Errorf("club changes = %+v", r.ClubChanges)
 	}
 }

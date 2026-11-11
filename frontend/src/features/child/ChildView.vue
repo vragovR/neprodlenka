@@ -1,31 +1,17 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { getChildReport } from '@/api'
 import { useRequest } from '@/composables/useRequest'
-import { dayOfMonth, formatMoney, fullName, monthTitle, plural } from '@/utils/format'
+import { capitalize, dayOfMonth, dayTitle, formatMoney, fullName, monthTitle, plural, weekdaysShort } from '@/utils/format'
 import MealCalendar from '@/components/MealCalendar.vue'
-import MonthSwitcher from '@/components/MonthSwitcher.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiEmpty from '@/components/ui/UiEmpty.vue'
 import UiSpinner from '@/components/ui/UiSpinner.vue'
 
 const { uid, id } = defineProps<{ uid: string; id: string }>()
 
-const router = useRouter()
-
 const { data, error, loading, run } = useRequest(() => getChildReport(uid, id))
 watch(() => uid, run, { immediate: true })
-
-const month = computed({
-  get: () => data.value?.month ?? '',
-  set: (m: string) => {
-    const target = m < month.value ? data.value?.prev_uid : data.value?.next_uid
-    if (target) {
-      router.replace({ name: 'child', params: { uid: target, id } })
-    }
-  },
-})
 
 const name = computed(() => (data.value ? fullName(data.value.child) : ''))
 const filled = computed(() => !!data.value?.days.some((d) => !d.school))
@@ -53,18 +39,16 @@ const legend = [
         <span class="avatar">{{ name.charAt(0) }}</span>
         <div>
           <h1>{{ name }}</h1>
-          <p class="muted">Календарь школьного питания</p>
+          <p class="muted">Календарь школьного питания за {{ monthTitle(data.month) }}</p>
         </div>
       </header>
 
-      <div><MonthSwitcher v-model="month" :has-prev="!!data.prev_uid" :has-next="!!data.next_uid" /></div>
-
-      <UiEmpty
-        v-if="!filled"
-        title="Календарь месяца не заполнен"
-        text="Отметки появятся, когда школа отметит неучебные дни этого месяца." />
-      <div v-else class="layout">
-        <section class="panel">
+      <div class="layout">
+        <UiEmpty
+          v-if="!filled"
+          title="Календарь месяца не заполнен"
+          text="Отметки появятся, когда школа отметит неучебные дни этого месяца." />
+        <section v-else class="panel">
           <MealCalendar large :days="data.days" :status="status" />
           <ul class="legend">
             <li v-for="l in legend" :key="l.swatch"> <span :class="['swatch', l.swatch]" />{{ l.label }} </li>
@@ -72,20 +56,43 @@ const legend = [
         </section>
 
         <aside class="panel">
-          <div class="tiles">
-            <div class="tile">
-              <strong>{{ data.child.present }}</strong>
-              <span class="muted">{{ plural(data.child.present, ['обед', 'обеда', 'обедов']) }} в месяце</span>
+          <template v-if="filled">
+            <div class="tiles">
+              <div class="tile">
+                <strong>{{ data.child.present }}</strong>
+                <span class="muted">{{ plural(data.child.present, ['обед', 'обеда', 'обедов']) }} в месяце</span>
+              </div>
+              <div v-if="data.price" class="tile">
+                <strong>{{ formatMoney(data.price) }}</strong>
+                <span class="muted">за обед</span>
+              </div>
             </div>
-            <div v-if="data.price" class="tile">
-              <strong>{{ formatMoney(data.price) }}</strong>
-              <span class="muted">за обед</span>
+            <div class="pay">
+              <strong>{{ formatMoney(data.child.total) }}</strong>
+              <span class="muted">к оплате за {{ monthTitle(data.month) }}</span>
             </div>
-          </div>
-          <div class="pay">
-            <strong>{{ formatMoney(data.child.total) }}</strong>
-            <span class="muted">к оплате за {{ monthTitle(data.month) }}</span>
-          </div>
+          </template>
+
+          <section class="clubs">
+            <h2>Кружки</h2>
+            <ul v-if="data.clubs.length" class="rows">
+              <li v-for="c in data.clubs" :key="`${c.weekday} ${c.start} ${c.name}`">
+                <span class="muted slot">{{ weekdaysShort[c.weekday - 1] }}, {{ c.start }}</span
+                >{{ c.name }}
+              </li>
+            </ul>
+            <p v-else class="muted">Кружков нет</p>
+          </section>
+
+          <section v-if="data.club_changes.length" class="clubs">
+            <h2>Изменения в расписании</h2>
+            <ul class="rows">
+              <li v-for="c in data.club_changes" :key="`${c.date} ${c.name}`">
+                <span class="muted when">{{ capitalize(dayTitle(c.date)) }}</span>
+                {{ c.name }} — {{ c.start ? `в ${c.start}` : 'отменён' }}
+              </li>
+            </ul>
+          </section>
         </aside>
       </div>
     </template>
@@ -228,6 +235,45 @@ const legend = [
 
 .pay strong {
   font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.clubs {
+  display: grid;
+  gap: 8px;
+}
+
+.clubs:not(:first-child) {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.clubs h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.clubs p {
+  margin: 0;
+}
+
+.rows {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slot {
+  display: inline-block;
+  min-width: 5.5em;
+  font-variant-numeric: tabular-nums;
+}
+
+.when {
+  display: block;
+  font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
 }
 

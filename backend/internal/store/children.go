@@ -132,6 +132,28 @@ func (s *Store) ChildByID(ctx context.Context, id int64) (Child, bool, error) {
 	return c, true, nil
 }
 
+func (s *Store) ChildClubs(ctx context.Context, childID int64) ([]Club, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT weekday, start, name FROM child_clubs WHERE child_id = ? ORDER BY weekday, start, name`, childID)
+	if err != nil {
+		return nil, fmt.Errorf("get clubs: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	clubs := []Club{}
+	for rows.Next() {
+		var club Club
+		if err := rows.Scan(&club.Weekday, &club.Start, &club.Name); err != nil {
+			return nil, fmt.Errorf("scan club: %w", err)
+		}
+		clubs = append(clubs, club)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get clubs: %w", err)
+	}
+	return clubs, nil
+}
+
 func (s *Store) AddChild(ctx context.Context, c Child) (Child, error) {
 	var weekdays int
 	err := s.db.QueryRowContext(ctx, `

@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { addMonths, capitalize, monthTitle } from '@/utils/format'
 
-const { hasPrev = true, hasNext = true } = defineProps<{ hasPrev?: boolean; hasNext?: boolean }>()
 const month = defineModel<string>({ required: true })
 </script>
 
 <template>
   <div class="switcher">
-    <button type="button" class="arrow" aria-label="Предыдущий месяц" :disabled="!hasPrev" @click="month = addMonths(month, -1)">‹</button>
+    <button type="button" class="arrow" aria-label="Предыдущий месяц" @click="month = addMonths(month, -1)">‹</button>
     <span class="title">{{ capitalize(monthTitle(month)) }}</span>
-    <button type="button" class="arrow" aria-label="Следующий месяц" :disabled="!hasNext" @click="month = addMonths(month, 1)">›</button>
+    <button type="button" class="arrow" aria-label="Следующий месяц" @click="month = addMonths(month, 1)">›</button>
   </div>
 </template>
 
@@ -44,12 +43,7 @@ const month = defineModel<string>({ required: true })
   }
 }
 
-.arrow:disabled {
-  cursor: default;
-  opacity: 0.4;
-}
-
-.arrow:not(:disabled):hover {
+.arrow:hover {
   background: var(--surface-muted);
 }
 </style>

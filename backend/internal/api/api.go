@@ -44,6 +44,7 @@ func NewHandler(a *auth.Service, s *store.Store, r *bot.Redrawer, b *bot.Bot, mb
 	mux.Handle("PUT /api/attendance/{month}", h.requireAdmin(h.putAttendance))
 	mux.Handle("GET /api/days/{date}", h.requireAdmin(h.getDay))
 	mux.Handle("PUT /api/days/{date}/children/{id}/clubs", h.requireAdmin(h.putDayClubs))
+	mux.Handle("PUT /api/days/{date}/children/{id}/club-changes", h.requireAdmin(h.putClubChanges))
 	mux.Handle("POST /api/debug/day/{date}", h.requireAdmin(h.debugDay))
 	mux.Handle("POST /api/debug/month/{month}", h.requireAdmin(h.debugMonth))
 	mux.Handle("DELETE /api/debug/day/{date}", h.requireAdmin(h.debugDeleteDay))

@@ -6,6 +6,7 @@ import type {
   ChildPatch,
   ChildReport,
   ChildrenResponse,
+  ClubChange,
   Day,
   DayClub,
   MarkChange,
@@ -40,6 +41,9 @@ export const getDay = (date: string) => request<Day>('GET', `/days/${date}`)
 
 export const putDayClubs = (date: string, childId: number, clubs: DayClub[]) =>
   request<void>('PUT', `/days/${date}/children/${childId}/clubs`, { clubs })
+
+export const putClubChanges = (date: string, childId: number, changes: ClubChange[]) =>
+  request<void>('PUT', `/days/${date}/children/${childId}/club-changes`, { changes })
 
 export const getReport = (uid: string) =>
   request<Report>('GET', `/reports/${encodeURIComponent(uid)}`)

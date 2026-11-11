@@ -86,6 +86,17 @@ export interface BotMessage {
   buttons: string[]
 }
 
+export interface ClubChange {
+  name: string
+  start: string | null
+}
+
+export interface DayClubChange extends ClubChange {
+  child_id: number
+  last_name: string
+  first_name: string
+}
+
 export interface Day {
   date: string
   school: boolean
@@ -93,6 +104,8 @@ export interface Day {
   closed: boolean
   children: DayRow[]
   message: BotMessage | null
+  changes: DayClubChange[]
+  changes_editable: boolean
 }
 
 export interface PaymentChange {
@@ -126,11 +139,15 @@ export interface Report {
   total: number
 }
 
+export interface ChildClubChange extends ClubChange {
+  date: string
+}
+
 export interface ChildReport {
   month: string
   days: ReportDay[]
   child: ReportRow
   price: number
-  prev_uid: string
-  next_uid: string
+  clubs: Club[]
+  club_changes: ChildClubChange[]
 }

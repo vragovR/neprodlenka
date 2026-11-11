@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -70,18 +69,6 @@ func (s *Store) ReportUID(ctx context.Context, month time.Time) (string, error) 
 	var uid string
 	if err := s.db.QueryRowContext(ctx, `SELECT uid FROM report_months WHERE month = ?`, m).Scan(&uid); err != nil {
 		return "", fmt.Errorf("get report uid: %w", err)
-	}
-	return uid, nil
-}
-
-func (s *Store) FindReportUID(ctx context.Context, month time.Time) (string, error) {
-	var uid string
-	err := s.db.QueryRowContext(ctx, `SELECT uid FROM report_months WHERE month = ?`, month.Format(monthLayout)).Scan(&uid)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("find report uid: %w", err)
 	}
 	return uid, nil
 }

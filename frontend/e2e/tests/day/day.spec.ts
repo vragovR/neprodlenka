@@ -22,6 +22,8 @@ test.describe('Day', () => {
     test('shows marks, clubs and summary', async ({ page }) => {
       const dayPage = new DayPage(page)
       await dayPage.goto(today)
+      await expect(dayPage.card('Иванов Петя')).toBeVisible()
+      await expect(dayPage.clubChanges).toHaveCount(0)
 
       await expect(page.getByText('Отметка идёт')).toContainText('Обедают — 1, не обедают — 1.')
       await expect(dayPage.card('Иванов Петя')).toContainText('Обедает')
@@ -149,11 +151,13 @@ test.describe('Day', () => {
   })
 
   test('today before the message is sent', async ({ page }) => {
-    await new DayPage(page).goto(today)
+    const dayPage = new DayPage(page)
+    await dayPage.goto(today)
 
     await expect(
       page.getByText('Сообщение за сегодня ещё не отправлено — отметки появятся после отправки.'),
     ).toBeVisible()
+    await expect(dayPage.clubChanges).toBeVisible()
   })
 
   test('past day without marks links to the month', async ({ page }) => {
@@ -179,6 +183,99 @@ test.describe('Day', () => {
     await dayPage.messageButton.click()
     await expect(dayPage.dialog).toContainText('Иванов Петя')
     await expect(dayPage.dialog).not.toContainText('Козлова Аня')
+  })
+
+  test('one-off club changes on an upcoming day', async ({ page, backend }) => {
+    const dayPage = new DayPage(page)
+    await backend.updateChild(1, { clubs: [{ weekday: 2, start: '14:00', name: 'Шахматы' }] })
+    await dayPage.goto('2026-09-29')
+    await expect(page.getByText('Этот день ещё не наступил.')).toBeVisible()
+    await expect(dayPage.clubChanges).toContainText('Изменений нет')
+
+    await dayPage.addClubChange({ child: 'Иванов Петя', name: 'Шахматы', start: '15:00' })
+    await expect(page.getByText('Сохранено')).toBeVisible()
+    await expect(dayPage.clubChange('Иванов Петя — Шахматы — 15:00')).toBeVisible()
+    await dayPage.addClubChange({ child: 'Козлова Аня Олеговна', name: 'Танцы', start: '12:30' })
+    await expect(dayPage.clubChange('Козлова Аня — Танцы — 12:30')).toBeVisible()
+    await dayPage.messageButton.click()
+    await expect(dayPage.dialog).toContainText('12:30 Танцы: Козлова Аня')
+    await expect(dayPage.dialog).toContainText('15:00 Шахматы: Иванов Петя')
+    await expect(dayPage.dialog).not.toContainText('14:00')
+    await page.keyboard.press('Escape')
+
+    await dayPage.editClubChange('Иванов Петя — Шахматы', { canceled: true })
+    await expect(dayPage.clubChange('Иванов Петя — Шахматы — отменён')).toBeVisible()
+    await dayPage.messageButton.click()
+    await expect(dayPage.dialog).not.toContainText('Шахматы')
+    await page.keyboard.press('Escape')
+
+    await dayPage.editClubChange('Иванов Петя — Шахматы', {
+      name: 'Футбол',
+      canceled: false,
+      start: '16:00',
+    })
+    await expect(dayPage.clubChange('Иванов Петя — Футбол — 16:00')).toBeVisible()
+    await expect(dayPage.clubChange('Иванов Петя')).toHaveCount(1)
+    await dayPage.messageButton.click()
+    await expect(dayPage.dialog).toContainText('14:00 Шахматы: Иванов Петя')
+    await expect(dayPage.dialog).toContainText('16:00 Футбол: Иванов Петя')
+    await page.keyboard.press('Escape')
+
+    await dayPage.addClubChange({ child: 'Иванов Петя', name: 'Футбол', start: '17:00' })
+    await expect(dayPage.clubChange('Иванов Петя — Футбол — 17:00')).toBeVisible()
+    await expect(dayPage.clubChange('Иванов Петя')).toHaveCount(1)
+
+    await dayPage.deleteClubChange('Иванов Петя — Футбол')
+    await expect(page.getByText('Изменение удалено')).toBeVisible()
+    await expect(dayPage.clubChange('Иванов Петя')).toHaveCount(0)
+    await expect(dayPage.clubChange('Козлова Аня — Танцы — 12:30')).toBeVisible()
+    await dayPage.messageButton.click()
+    await expect(dayPage.dialog).toContainText('14:00 Шахматы: Иванов Петя')
+    await expect(dayPage.dialog).not.toContainText('Футбол')
+
+    await page.reload()
+    await expect(dayPage.clubChange('Козлова Аня — Танцы — 12:30')).toBeVisible()
+    await dayPage.goto('2026-09-28')
+    await expect(dayPage.clubChanges).toContainText('Изменений нет')
+  })
+
+  test('club changes wait for the day to reload before the next save', async ({ page }) => {
+    const dayPage = new DayPage(page)
+    await dayPage.goto('2026-09-29')
+    await dayPage.addClubChange({ child: 'Иванов Петя', name: 'Шахматы', start: '15:00' })
+    await dayPage.addClubChange({ child: 'Иванов Петя', name: 'Футбол', start: '16:00' })
+    await expect(dayPage.clubChange('Иванов Петя — Футбол — 16:00')).toBeVisible()
+
+    let release = () => {}
+    const reloaded = new Promise<void>((resolve) => (release = resolve))
+    await page.route('/api/days/2026-09-29', async (route) => {
+      await reloaded
+      await route.fallback()
+    })
+    await dayPage.deleteClubChange('Иванов Петя — Шахматы')
+    await expect(page.getByText('Изменение удалено')).toBeVisible()
+    const remove = dayPage
+      .clubChange('Иванов Петя — Футбол')
+      .getByRole('button', { name: 'Удалить' })
+    await expect(remove).toBeDisabled()
+
+    release()
+    await expect(dayPage.clubChange('Иванов Петя — Шахматы')).toHaveCount(0)
+    await expect(remove).toBeEnabled()
+  })
+
+  test('club change form closes when the day changes', async ({ page }) => {
+    const dayPage = new DayPage(page)
+    await dayPage.goto('2026-09-30')
+    await page.getByRole('button', { name: 'Предыдущий день' }).click()
+    await expect(page).toHaveURL('/day/2026-09-29')
+    await dayPage.addClubChangeButton.click()
+    await expect(dayPage.dialog).toBeVisible()
+
+    await page.goBack()
+
+    await expect(page).toHaveURL('/day/2026-09-30')
+    await expect(dayPage.dialog).toBeHidden()
   })
 
   test('no school day', async ({ page }) => {

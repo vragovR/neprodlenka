@@ -51,23 +51,17 @@ test.describe('Report', () => {
     await expect(page.getByRole('complementary')).toContainText(/0\s*₽\s*к оплате за сентябрь 2026/)
   })
 
-  test('the child page switches only to months with a report link', async ({ page, backend }) => {
+  test('the child page shows its month without a month switcher', async ({ page, backend }) => {
     const reportPage = new ReportPage(page)
-    await backend.setNoSchoolDays('2026-08', weekends('2026-08'))
     await backend.setNoSchoolDays(month, weekends(month))
     const child = await backend.addChild(petya)
-    const august = await backend.reportUID('2026-08')
-    const september = await backend.reportUID(month)
+    const uid = await backend.reportUID(month)
 
-    await page.goto(`/report/${september}/child/${child.id}`)
+    await page.goto(`/report/${uid}/child/${child.id}`)
     await expect(reportPage.heading).toHaveText('Иванов Петя')
-    await expect(page.getByRole('button', { name: 'Следующий месяц' })).toBeDisabled()
-    await page.getByRole('button', { name: 'Предыдущий месяц' }).click()
-
-    await expect(page).toHaveURL(`/report/${august}/child/${child.id}`)
-    await expect(page.getByText('к оплате за август 2026')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Предыдущий месяц' })).toBeDisabled()
-    await expect(page.getByRole('button', { name: 'Следующий месяц' })).toBeEnabled()
+    await expect(page.getByText('Календарь школьного питания за сентябрь 2026')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Предыдущий месяц' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Следующий месяц' })).toHaveCount(0)
   })
 
   test('the child page of an unfilled month', async ({ page, backend }) => {
@@ -76,6 +70,24 @@ test.describe('Report', () => {
 
     await page.goto(`/report/${uid}/child/${child.id}`)
     await expect(page.getByText('Календарь месяца не заполнен')).toBeVisible()
+    await expect(page.getByRole('complementary')).toContainText('Пн, 15:00Шахматы')
+  })
+
+  test('the child page shows clubs and upcoming club changes', async ({ page, backend }) => {
+    await backend.setNoSchoolDays(month, weekends(month))
+    const child = await backend.addChild(petya)
+    await backend.setClubChanges('2026-09-28', child.id, [{ name: 'Шахматы', start: null }])
+    await backend.setClubChanges('2026-09-30', child.id, [{ name: 'Шахматы', start: '16:00' }])
+    const uid = await backend.reportUID(month)
+
+    await page.goto(`/report/${uid}/child/${child.id}`)
+    const aside = page.getByRole('complementary')
+    await expect(aside.getByRole('listitem')).toHaveText([
+      'Пн, 15:00Шахматы',
+      'Ср, 15:00Шахматы',
+      'Понедельник, 28 сентября Шахматы — отменён',
+      'Среда, 30 сентября Шахматы — в 16:00',
+    ])
   })
 
   test('unknown child', async ({ page, backend }) => {

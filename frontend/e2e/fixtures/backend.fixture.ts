@@ -65,6 +65,14 @@ export class Backend {
     })
   }
 
+  async setClubChanges(
+    date: string,
+    childId: number,
+    changes: { name: string; start: string | null }[],
+  ): Promise<void> {
+    await this.call('PUT', `/days/${date}/children/${childId}/club-changes`, { changes })
+  }
+
   async reportUID(month: string): Promise<string> {
     const { report_url } = (await this.call('GET', `/months/${month}`)) as { report_url: string }
     return report_url.split('/').pop() ?? ''

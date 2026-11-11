@@ -19,6 +19,14 @@ type dayClubJSON struct {
 	Name  string `json:"name"`
 }
 
+type clubChangeJSON struct {
+	ChildID   int64   `json:"child_id"`
+	LastName  string  `json:"last_name"`
+	FirstName string  `json:"first_name"`
+	Name      string  `json:"name"`
+	Start     *string `json:"start"`
+}
+
 type messageJSON struct {
 	Text    string   `json:"text"`
 	Buttons []string `json:"buttons"`
@@ -74,7 +82,7 @@ func (h *handler) getDay(w http.ResponseWriter, r *http.Request) {
 		statuses[c.ID] = c.Status
 	}
 
-	dayClubs := h.store.ScheduleClubs
+	dayClubs := h.store.PlannedClubs
 	if published {
 		dayClubs = h.store.DayClubs
 	}
@@ -128,13 +136,29 @@ func (h *handler) getDay(w http.ResponseWriter, r *http.Request) {
 		msgJSON = toMessageJSON(msg)
 	}
 
+	changes, err := h.store.ClubChanges(r.Context(), date)
+	if err != nil {
+		h.internalError(w, err)
+		return
+	}
+	changesJSON := make([]clubChangeJSON, 0, len(changes))
+	for _, c := range changes {
+		row := clubChangeJSON{ChildID: c.ChildID, LastName: c.LastName, FirstName: c.FirstName, Name: c.Name}
+		if !c.Canceled() {
+			row.Start = new(c.Start)
+		}
+		changesJSON = append(changesJSON, row)
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"date":      date.Format(time.DateOnly),
-		"school":    school,
-		"published": published,
-		"closed":    hasPost && post.Status == store.PostClosed,
-		"children":  rows,
-		"message":   msgJSON,
+		"date":             date.Format(time.DateOnly),
+		"school":           school,
+		"published":        published,
+		"closed":           hasPost && post.Status == store.PostClosed,
+		"children":         rows,
+		"message":          msgJSON,
+		"changes":          changesJSON,
+		"changes_editable": school && upcoming,
 	})
 }
 
@@ -190,4 +214,75 @@ func (h *handler) putDayClubs(w http.ResponseWriter, r *http.Request) {
 	}
 	h.redrawer.Redraw(date)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handler) putClubChanges(w http.ResponseWriter, r *http.Request) {
+	date, ok := h.date(w, r)
+	if !ok {
+		return
+	}
+	childID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "Ребёнок не найден")
+		return
+	}
+	var req struct {
+		Changes []struct {
+			Name  string  `json:"name"`
+			Start *string `json:"start"`
+		} `json:"changes"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	if date.Before(clock.Today(h.now())) {
+		writeError(w, http.StatusBadRequest, "validation", "Изменения кружков вносятся только на сегодня и будущие дни")
+		return
+	}
+	school, err := h.store.IsSchoolDay(r.Context(), date)
+	if err != nil {
+		h.internalError(w, err)
+		return
+	}
+	if !school {
+		writeError(w, http.StatusBadRequest, "validation", "Изменения кружков вносятся только на учебные дни")
+		return
+	}
+
+	changes := make([]store.ClubChange, 0, len(req.Changes))
+	for _, c := range req.Changes {
+		var (
+			start string
+			name  string
+			err   error
+		)
+		if c.Start == nil {
+			name, err = normalizeClubName(c.Name)
+		} else {
+			start, name, err = normalizeClub(*c.Start, c.Name)
+		}
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "validation", err.Error())
+			return
+		}
+		if slices.ContainsFunc(changes, func(ch store.ClubChange) bool { return ch.Name == name }) {
+			writeError(w, http.StatusBadRequest, "validation", "Кружок «"+name+"» указан дважды")
+			return
+		}
+		changes = append(changes, store.ClubChange{ChildID: childID, Start: start, Name: name})
+	}
+
+	err = h.store.SetClubChanges(r.Context(), date, childID, changes)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		writeError(w, http.StatusNotFound, "not_found", "Ребёнок не найден")
+	case errors.Is(err, store.ErrChildInactive):
+		writeError(w, http.StatusBadRequest, "validation", "Ребёнок деактивирован")
+	case errors.Is(err, store.ErrPostExists):
+		writeError(w, http.StatusBadRequest, "validation", "Сообщение за этот день уже отправлено — правьте кружки в карточке ребёнка")
+	case err != nil:
+		h.internalError(w, err)
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

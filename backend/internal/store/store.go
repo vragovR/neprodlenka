@@ -223,13 +223,17 @@ func (s *Store) CreatePost(ctx context.Context, date time.Time) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("create post: %w", err)
 	}
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO day_clubs (date, child_id, start, name)
-		SELECT ?1, cc.child_id, cc.start, cc.name
-		FROM child_clubs cc JOIN children c ON c.id = cc.child_id
-		WHERE c.active = 1 AND c.weekdays & ?3 <> 0 AND cc.weekday = ?2`, d, Weekday(date), weekdayBit(date))
+	clubs, err := plannedClubs(ctx, tx, date)
 	if err != nil {
 		return false, fmt.Errorf("create post: %w", err)
+	}
+	for _, c := range clubs {
+		_, err := tx.ExecContext(ctx,
+			`INSERT INTO day_clubs (date, child_id, start, name) VALUES (?, ?, ?, ?)`,
+			d, c.ChildID, c.Start, c.Name)
+		if err != nil {
+			return false, fmt.Errorf("create post: %w", err)
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return false, fmt.Errorf("create post: %w", err)
@@ -246,11 +250,20 @@ func weekdayBit(date time.Time) int {
 }
 
 func (s *Store) SetPostMessageID(ctx context.Context, date time.Time, messageID string) error {
-	_, err := s.db.ExecContext(ctx,
-		`UPDATE daily_posts SET message_id = ? WHERE date = ?`,
-		messageID, date.Format(time.DateOnly),
-	)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		return fmt.Errorf("set post message id: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	d := date.Format(time.DateOnly)
+	if _, err := tx.ExecContext(ctx, `UPDATE daily_posts SET message_id = ? WHERE date = ?`, messageID, d); err != nil {
+		return fmt.Errorf("set post message id: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM club_changes WHERE date <= ?`, d); err != nil {
+		return fmt.Errorf("set post message id: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("set post message id: %w", err)
 	}
 	return nil
