@@ -13,10 +13,14 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version-file: backend/go.mod
@@ -28,9 +32,30 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - run: npx playwright install --with-deps chromium
+      - name: Install golangci-lint
+        run: |
+          version=$(sed -n 's/^GOLANGCI_LINT_VERSION := //p' Makefile)
+          curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b "$RUNNER_TEMP/golangci-lint" "$version"
+          echo "$RUNNER_TEMP/golangci-lint" >> "$GITHUB_PATH"
+      - name: Lint backend
+        working-directory: backend
+        run: |
+          go fix ./...
+          go vet ./cmd/... ./internal/...
+          test -z "$(gofmt -l cmd internal)"
+          golangci-lint run ./...
+      - run: npm run lint
         working-directory: frontend
-      - run: make lint test build
+      - run: go test ./cmd/... ./internal/...
+        working-directory: backend
+      - run: npm run test:unit -- --run
+        working-directory: frontend
+      - run: npm run test:e2e
+        working-directory: frontend
+      - run: go build -o bin/neprodlenka ./cmd/neprodlenka
+        working-directory: backend
+      - run: npm run build
+        working-directory: frontend
       - run: git diff --exit-code
 
   images:
